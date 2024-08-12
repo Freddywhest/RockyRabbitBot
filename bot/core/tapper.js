@@ -1,0 +1,710 @@
+const { default: axios } = require("axios");
+const logger = require("../utils/logger");
+const headers = require("./header");
+const { Api } = require("telegram");
+const { SocksProxyAgent } = require("socks-proxy-agent");
+const settings = require("../config/config");
+const app = require("../config/app");
+const user_agents = require("../config/userAgents");
+const fs = require("fs");
+const sleep = require("../utils/sleep");
+const ApiRequest = require("./api");
+const parser = require("../utils/parser");
+const _ = require("lodash");
+const moment = require("moment");
+const filterArray = require("../helpers/filterArray");
+const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
+const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
+const syncronizingChecker = require("../utils/snycronizingChecker");
+
+class Tapper {
+  constructor(tg_client) {
+    this.session_name = tg_client.session_name;
+    this.tg_client = tg_client.tg_client;
+    this.API_URL = app.apiUrl;
+    this.session_user_agents = this.#load_session_data();
+    this.headers = { ...headers, "user-agent": this.#get_user_agent() };
+    this.api = new ApiRequest(this.session_name);
+  }
+
+  #load_session_data() {
+    try {
+      const data = fs.readFileSync("session_user_agents.json", "utf8");
+      return JSON.parse(data);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return {};
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  #clean_tg_web_data(queryString) {
+    let cleanedString = queryString.replace(/^tgWebAppData=/, "");
+    cleanedString = cleanedString
+      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=ios$/, "")
+      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=android$/, "");
+
+    return cleanedString;
+  }
+
+  #get_random_user_agent() {
+    const randomIndex = Math.floor(Math.random() * user_agents.length);
+    return user_agents[randomIndex];
+  }
+
+  #get_user_agent() {
+    if (this.session_user_agents[this.session_name]) {
+      return this.session_user_agents[this.session_name];
+    }
+
+    logger.info(`${this.session_name} | Generating new user agent...`);
+    const newUserAgent = this.#get_random_user_agent();
+    this.session_user_agents[this.session_name] = newUserAgent;
+    this.#save_session_data(this.session_user_agents);
+    return newUserAgent;
+  }
+
+  #save_session_data(session_user_agents) {
+    fs.writeFileSync(
+      "session_user_agents.json",
+      JSON.stringify(session_user_agents, null, 2)
+    );
+  }
+
+  #get_boost_by_id(data, boostId) {
+    const boost = data.boostsList.find((boost) => boost.boostId === boostId);
+    return boost ? boost : {};
+  }
+
+  #get_platform(userAgent) {
+    const platformPatterns = [
+      { pattern: /iPhone/i, platform: "ios" },
+      { pattern: /Android/i, platform: "android" },
+      { pattern: /iPad/i, platform: "ios" },
+    ];
+
+    for (const { pattern, platform } of platformPatterns) {
+      if (pattern.test(userAgent)) {
+        return platform;
+      }
+    }
+
+    return "Unknown";
+  }
+
+  #proxy_agent(proxy) {
+    try {
+      if (!proxy) return null;
+      let proxy_url;
+      if (!proxy.password && !proxy.username) {
+        proxy_url = `socks${proxy.socksType}://${proxy.ip}:${proxy.port}`;
+      } else {
+        proxy_url = `socks${proxy.socksType}://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
+      }
+      return new SocksProxyAgent(proxy_url);
+    } catch (e) {
+      logger.error(
+        `${
+          this.session_name
+        } | Proxy agent error: ${e}\nProxy: ${JSON.stringify(proxy, null, 2)}`
+      );
+      return null;
+    }
+  }
+
+  async #get_tg_web_data() {
+    try {
+      await this.tg_client.start();
+      const platform = this.#get_platform(this.#get_user_agent());
+      const get_bot_chat_history = await this.tg_client.invoke(
+        new Api.messages.GetHistory({
+          peer: await this.tg_client.getInputEntity(app.peer),
+          limit: 1,
+        })
+      );
+
+      //
+      await syncronizingChecker(this.#channel_checker, this.tg_client);
+
+      if (get_bot_chat_history.messages.length < 1) {
+        await this.tg_client.invoke(
+          new Api.messages.SendMessage({
+            message: "/start",
+            silent: true,
+            peer: await this.tg_client.getInputEntity(app.peer),
+          })
+        );
+      }
+
+      const result = await this.tg_client.invoke(
+        new Api.messages.RequestWebView({
+          peer: await this.tg_client.getInputEntity(app.peer),
+          bot: await this.tg_client.getInputEntity(app.bot),
+          platform,
+          from_bot_menu: true,
+          url: app.webviewUrl,
+        })
+      );
+
+      const authUrl = result.url;
+      const tgWebData = authUrl.split("#", 2)[1];
+      const data = parser.toJson(
+        decodeURIComponent(this.#clean_tg_web_data(tgWebData))
+      );
+      return parser.toQueryString(data);
+    } catch (error) {
+      logger.error(
+        `${this.session_name} | ❗️Unknown error during Authorization: ${error}`
+      );
+      throw error;
+    } finally {
+      /* await this.tg_client.disconnect(); */
+      await sleep(1);
+      logger.info(`${this.session_name} | 🚀 Starting session...`);
+    }
+  }
+
+  async #channel_checker(tg, channelName) {
+    try {
+      await tg.invoke(
+        new Api.channels.GetParticipant({
+          channel: await tg.getInputEntity(channelName),
+          participant: await tg.getInputEntity("me"),
+        })
+      );
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async #check_proxy(http_client, proxy) {
+    try {
+      http_client.defaults.headers["host"] = "httpbin.org";
+      const response = await http_client.get("https://httpbin.org/ip");
+      const ip = response.data.origin;
+      logger.info(`${this.session_name} | Proxy IP: ${ip}`);
+    } catch (error) {
+      if (
+        error.message.includes("ENOTFOUND") ||
+        error.message.includes("getaddrinfo") ||
+        error.message.includes("ECONNREFUSED")
+      ) {
+        logger.error(
+          `${this.session_name} | Error: Unable to resolve the proxy address. The proxy server at ${proxy.ip}:${proxy.port} could not be found. Please check the proxy address and your network connection.`
+        );
+        logger.error(`${this.session_name} | No proxy will be used.`);
+      } else {
+        logger.error(
+          `${this.session_name} | Proxy: ${proxy.ip}:${proxy.port} | Error: ${error.message}`
+        );
+      }
+
+      return false;
+    }
+  }
+
+  async run(proxy) {
+    let http_client;
+    let access_token_created_time = 0;
+
+    let profile_data, boosts_list;
+    let sleep_daily_reward = 0;
+    let tasks_list = {};
+    let config = {};
+    let mine_sync = [];
+
+    if (settings.USE_PROXY_FROM_FILE && proxy) {
+      http_client = axios.create({
+        httpsAgent: this.#proxy_agent(proxy),
+        headers: this.headers,
+        withCredentials: true,
+      });
+      const proxy_result = await this.#check_proxy(http_client, proxy);
+      if (!proxy_result) {
+        http_client = axios.create({
+          headers: this.headers,
+          withCredentials: true,
+        });
+      }
+    } else {
+      http_client = axios.create({
+        headers: this.headers,
+        withCredentials: true,
+      });
+    }
+    while (true) {
+      try {
+        const currentTime = _.floor(Date.now() / 1000);
+        if (currentTime - access_token_created_time >= 3600) {
+          http_client.defaults.headers["host"] = app.host;
+          http_client.defaults.headers["sec-ch-ua-platform"] =
+            this.#get_platform(this.#get_user_agent());
+
+          const tg_web_data = await this.#get_tg_web_data();
+
+          http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
+
+          access_token_created_time = currentTime;
+          await sleep(2);
+        }
+        // Get profile data
+        profile_data = await this.api.get_user_data(http_client);
+        boosts_list = await this.api.get_boosts(http_client);
+        tasks_list = await this.api.tasks(http_client);
+        config = await this.api.config(http_client);
+        mine_sync = await this.api.mine_sync(http_client);
+
+        if (
+          _.isEmpty(profile_data) ||
+          profile_data?.status?.toLowerCase() !== "ok"
+        ) {
+          access_token_created_time = 0;
+
+          continue;
+        }
+
+        if (!profile_data?.initAccount || _.isEmpty(profile_data?.account)) {
+          await this.api.init_account(http_client);
+          await this.api.sponsor(http_client);
+          continue;
+        }
+
+        if (profile_data?.account?.sponsor == "") {
+          await this.api.sponsor(http_client);
+          continue;
+        }
+
+        await sleep(1);
+
+        if (profile_data?.clicker?.lastPassiveEarn > 0) {
+          logger.info(
+            `${this.session_name} | 💸 Last passive earn: <gr>+${profile_data?.clicker?.lastPassiveEarn}</gr> | Earn per hour: <ye>${profile_data?.clicker?.earnPassivePerHour}</ye>`
+          );
+        }
+
+        // Daily reward
+        if (settings.AUTO_CLAIM_REWARD && sleep_daily_reward <= currentTime) {
+          const reward_data = await this.api.daily_reward(http_client);
+
+          if (
+            typeof reward_data === "string" &&
+            reward_data.includes("not_subscribed")
+          ) {
+            logger.info(
+              `${this.session_name} |⌛Joining RockyRabit channel before claiming daily reward...`
+            );
+            await this.tg_client.invoke(
+              new Api.channels.JoinChannel({
+                channel: await this.tg_client.getInputEntity(
+                  app.rockyRabitChannel
+                ),
+              })
+            );
+            continue;
+          } else if (
+            typeof reward_data === "string" &&
+            reward_data.includes("claimed")
+          ) {
+            sleep_daily_reward =
+              new Date(moment().add(1, "days").startOf("day")).getTime() / 1000;
+            logger.info(
+              `${this.session_name} | 🚶 Daily reward already claimed. Skipping...`
+            );
+          } else if (reward_data?.status?.toLowerCase() === "ok") {
+            profile_data = await this.api.get_user_data(http_client);
+            logger.info(
+              `${this.session_name} | 🎉 Claimed daily reward successfully | Reward: <lb>${reward_data?.task?.rewardCoins}</lb> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
+            );
+            sleep_daily_reward =
+              new Date(moment().add(1, "days").startOf("day")).getTime() / 1000;
+          }
+        }
+
+        await sleep(1);
+
+        //Send taps
+        if (settings.RANDOM_TAPS_COUNT[0] > settings.RANDOM_TAPS_COUNT[1]) {
+          logger.error(
+            `${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN must be less than RANDOM_TAPS_COUNT MAX. Example: RANDOM_TAPS_COUNT: [10, 20]`
+          );
+          process.exit(1);
+        }
+        if (
+          !_.isInteger(settings.RANDOM_TAPS_COUNT[0]) ||
+          !_.isInteger(settings.RANDOM_TAPS_COUNT[1])
+        ) {
+          logger.error(
+            `${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN and MAX must be integers/numbers. Example: RANDOM_TAPS_COUNT: [10, 20]`
+          );
+          process.exit(1);
+        }
+
+        let count = _.random(
+          settings.RANDOM_TAPS_COUNT[0],
+          settings.RANDOM_TAPS_COUNT[1]
+        );
+        const eligible_count =
+          profile_data?.clicker?.availableTaps /
+          profile_data?.clicker?.earnPerTap;
+        if (
+          count <= eligible_count &&
+          profile_data?.clicker?.availableTaps > 0
+        ) {
+          const taps = await this.api.taps(http_client, { count });
+
+          if (taps?.status?.toLowerCase() === "ok") {
+            const balanceChange =
+              taps?.clicker?.balance - profile_data?.clicker?.balance;
+            profile_data = await this.api.get_user_data(http_client);
+            logger.info(
+              `${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+            );
+          }
+        } else {
+          if (_.isEmpty(boosts_list)) {
+            continue;
+          }
+          const full_taps_data = this.#get_boost_by_id(
+            boosts_list,
+            "full-available-taps"
+          );
+          if (_.isEmpty(full_taps_data)) {
+            continue;
+          }
+
+          if (
+            full_taps_data?.level < 6 &&
+            full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
+            settings.APPLY_DAILY_FULL_ENERGY
+          ) {
+            const full_energy_boost = await this.api.upgrade_boost(
+              http_client,
+              {
+                boostId: full_taps_data?.boostId,
+                timezone: app.timezone,
+              }
+            );
+            if (full_energy_boost?.status?.toLowerCase() === "ok") {
+              profile_data = await this.api.get_user_data(http_client);
+              logger.info(
+                `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+              );
+              continue;
+            }
+          }
+          logger.info(
+            `${
+              this.session_name
+            } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
+              count * profile_data?.clicker?.earnPerTap
+            }</la> energy to send taps | Available: <bl>${
+              profile_data?.clicker?.availableTaps
+            }</bl>`
+          );
+        }
+
+        await sleep(2);
+
+        // Daily combos
+        const combo_data = await this.api.get_combo_data(http_client);
+        if (!_.isEmpty(combo_data)) {
+          const expireAtForCards =
+            new Date(combo_data?.expireAtForCards) / 1000;
+
+          if (settings.AUTO_PLAY_ENIGMA && !_.isEmpty(combo_data?.enigma)) {
+            const play_enigma_data = await this.api.get_enigma_info(
+              http_client
+            );
+
+            if (
+              play_enigma_data?.completedAt < 1 &&
+              Array.isArray(combo_data?.enigma) &&
+              play_enigma_data?.passphrase?.includes(combo_data?.enigma[0])
+            ) {
+              const play_enigma = await this.api.play_enigma(http_client, {
+                passphrase: Array.isArray(combo_data?.enigma)
+                  ? combo_data.enigma.join(",")
+                  : combo_data.enigma,
+                enigmaId: play_enigma_data?.enigmaId,
+              });
+
+              if (play_enigma?.status?.toLowerCase() === "ok") {
+                profile_data = await this.api.get_user_data(http_client);
+                logger.info(
+                  `${this.session_name} | 🎊 Enigma played successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                );
+              }
+            }
+          }
+
+          if (settings.AUTO_PLAY_COMBO && !_.isEmpty(combo_data?.cards)) {
+            const combo_info = await this.api.get_combo_info(http_client);
+
+            if (combo_info?.completedAt < 1 && expireAtForCards > currentTime) {
+              const play_combo = await this.api.play_combo(http_client, {
+                combos: Array.isArray(combo_data?.cards)
+                  ? combo_data?.cards.join(",")
+                  : combo_data?.cards,
+                comboId: combo_info?.comboId,
+              });
+
+              if (play_combo?.status?.toLowerCase() === "ok") {
+                profile_data = await this.api.get_user_data(http_client);
+                logger.info(
+                  `${this.session_name} | 🎊 Combo played successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                );
+              }
+            }
+          }
+        }
+
+        await sleep(3);
+
+        // Boost upgrade (earn-per-tap)
+        const tap_boost_data = this.#get_boost_by_id(
+          boosts_list,
+          "earn-per-tap"
+        );
+        if (
+          settings.AUTO_UPGRADE_TAP &&
+          !_.isEmpty(tap_boost_data) &&
+          settings.MAX_TAP_LEVEL > tap_boost_data?.level &&
+          tap_boost_data?.price <= profile_data?.clicker?.balance
+        ) {
+          const tap_boost = await this.api.upgrade_boost(http_client, {
+            boostId: tap_boost_data?.boostId,
+            timezone: app.timezone,
+          });
+
+          if (tap_boost?.status?.toLowerCase() === "ok") {
+            profile_data = await this.api.get_user_data(http_client);
+            logger.info(
+              `${this.session_name} | <gr>⬆️</gr> Tap upgraded successfully | Level: <la>${tap_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+            );
+          }
+        }
+        await sleep(3);
+
+        // Boost upgrade (max-taps)
+        const energy_boost_data = this.#get_boost_by_id(
+          boosts_list,
+          "max-taps"
+        );
+
+        if (
+          settings.AUTO_UPGRADE_ENERGY_LIMIT &&
+          !_.isEmpty(energy_boost_data) &&
+          settings.MAX_ENERGY_LIMIT_LEVEL > energy_boost_data?.level &&
+          energy_boost_data?.price <= profile_data?.clicker?.balance
+        ) {
+          const energy_boost = await this.api.upgrade_boost(http_client, {
+            boostId: energy_boost_data?.boostId,
+            timezone: app.timezone,
+          });
+          if (energy_boost?.status?.toLowerCase() === "ok") {
+            profile_data = await this.api.get_user_data(http_client);
+            logger.info(
+              `${this.session_name} | <gr>⬆️</gr> Energy limit upgraded successfully | Level: <la>${energy_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+            );
+          }
+        }
+
+        await sleep(3);
+
+        // Boost upgrade (hourly-income-limit)
+        const hourly_limit_data = this.#get_boost_by_id(
+          boosts_list,
+          "hourly-income-limit"
+        );
+
+        if (
+          settings.AUTO_HOURLY_LIMIT &&
+          !_.isEmpty(hourly_limit_data) &&
+          settings.MAX_HOURLY_LIMIT_LEVEL > hourly_limit_data?.level &&
+          hourly_limit_data?.price <= profile_data?.clicker?.balance
+        ) {
+          const hourly_limit = await this.api.upgrade_boost(http_client, {
+            boostId: hourly_limit_data?.boostId,
+            timezone: app.timezone,
+          });
+          if (hourly_limit?.status?.toLowerCase() === "ok") {
+            profile_data = await this.api.get_user_data(http_client);
+            logger.info(
+              `${this.session_name} | <gr>⬆️</gr> Hourly limit upgraded successfully | Level: <la>${hourly_limit_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+            );
+          }
+        }
+
+        if (settings.AUTO_COMPLETE_TASKS) {
+          await sleep(2);
+
+          if (!_.isEmpty(tasks_list) && !_.isEmpty(tasks_list.tasks)) {
+            const uncompletedTasks = filterArray.getUncompletedTasks(
+              tasks_list.tasks
+            );
+
+            if (!_.isEmpty(uncompletedTasks)) {
+              for (const task of uncompletedTasks) {
+                const complete_task = await this.api.claim_task(http_client, {
+                  taskId: task?.id,
+                  timezone: app.timezone,
+                });
+                if (complete_task?.status?.toLowerCase() === "ok") {
+                  logger.info(
+                    `${this.session_name} | ✔️ Task completed successfully | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
+                  );
+                } else {
+                  logger.error(
+                    `${this.session_name} | ✖️ Could not complete task | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        if (settings.AUTO_UPGRADE_CARD) {
+          if (
+            _.isEmpty(config?.config) ||
+            _.isEmpty(config?.config?.upgrade) ||
+            _.isEmpty(mine_sync)
+          ) {
+            continue;
+          }
+
+          const leagues = Array.from(
+            { length: 10 },
+            (_, i) => filterArray.getById(mine_sync, `league_${i + 1}`)[0]
+          );
+
+          if (leagues.some((league) => _.isEmpty(league))) {
+            continue;
+          }
+
+          const cards_fighter = filterArray.getCardsOnUpgradeTab(
+            config?.config?.upgrade,
+            "fighter",
+            "upgrade"
+          );
+          const cards_coach = filterArray.getCardsOnUpgradeTab(
+            config?.config?.upgrade,
+            "coach",
+            "upgrade"
+          );
+
+          if (_.isEmpty(cards_fighter) || _.isEmpty(cards_coach)) {
+            continue;
+          }
+
+          for (let i = 0; i < leagues.length; i++) {
+            const allPreviousLeaguesCompleted =
+              i === 0 ||
+              leagues
+                .slice(0, i)
+                .every((league) => league?.isCompleted === true);
+
+            if (
+              leagues[i]?.isCompleted === false &&
+              allPreviousLeaguesCompleted
+            ) {
+              const level = i + 1;
+              const cards_fighter_level = filterArray.getCardsWithLevel(
+                mine_sync,
+                cards_fighter,
+                level
+              );
+              const cards_coach_level = filterArray.getCardsWithLevel(
+                mine_sync,
+                cards_coach,
+                level
+              );
+
+              if (!_.isEmpty(cards_fighter_level)) {
+                await upgradeTabCardsBuying(
+                  cards_fighter_level,
+                  http_client,
+                  this.api,
+                  this.session_name
+                );
+                mine_sync = await this.api.mine_sync(http_client);
+                continue;
+              } else if (!_.isEmpty(cards_coach_level)) {
+                await upgradeTabCardsBuying(
+                  cards_coach_level,
+                  http_client,
+                  this.api,
+                  this.session_name
+                );
+                mine_sync = await this.api.mine_sync(http_client);
+                continue;
+              }
+
+              if (leagues[i]?.price <= profile_data?.clicker?.balance) {
+                const upgrade_league = await this.api.upgrade_cards(
+                  http_client,
+                  {
+                    upgradeId: `league_${level}`,
+                  }
+                );
+
+                if (upgrade_league?.status?.toLowerCase() === "ok") {
+                  profile_data = await this.api.get_user_data(http_client);
+
+                  logger.info(
+                    `${this.session_name} | <gr>⬆️</gr> League_${level} upgraded successfully | Level: <bl>${leagues[i]?.level}</bl> | Cost: <re>${leagues[i]?.price}</re> | Balance: <la>${profile_data?.clicker?.balance}</la>`
+                  );
+                }
+              } else {
+                logger.info(
+                  `${this.session_name} | <re>👎</re> Not enough balance to upgrade league <bl>${level}</bl> | Need: <la>${leagues[i]?.price}</la> | Balance: <lb>${profile_data?.clicker?.balance}</lb>`
+                );
+                continue;
+              }
+            }
+          }
+
+          await sleep(2);
+
+          // get cards with no conditions
+          /*  const cards_wnc = filterArray.getEmptyConditions(
+            config?.config?.upgrade
+          );
+
+          await upgradeNoConditionCards(
+            cards_wnc,
+            this.api,
+            http_client,
+            this.session_name
+          ); */
+        }
+      } catch (error) {
+        //traceback(error);
+        logger.error(`${this.session_name} | ❗️Unknown error: ${error}}`);
+      } finally {
+        if (
+          _.isInteger(settings.SLEEP_BETWEEN_TAP[0]) &&
+          _.isInteger(settings.SLEEP_BETWEEN_TAP[1])
+        ) {
+          const start_sleep = _.random(
+            settings.SLEEP_BETWEEN_TAP[0],
+            settings.SLEEP_BETWEEN_TAP[1]
+          );
+          logger.info(
+            `${this.session_name} | Sleeping for ${start_sleep} seconds...`
+          );
+          await sleep(start_sleep);
+        } else {
+          const end_sleep = _.random(30, 50);
+          logger.info(
+            `${this.session_name} | Sleeping for ${end_sleep} seconds...`
+          );
+          await sleep(end_sleep);
+        }
+      }
+    }
+  }
+}
+module.exports = Tapper;
