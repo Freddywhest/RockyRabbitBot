@@ -56,6 +56,10 @@ const settings = {
     ? parseInt(process.env.MAX_HOURLY_LIMIT_LEVEL)
     : 10,
 
+  SLEEP_EMPTY_ENERGY: process.env.SLEEP_EMPTY_ENERGY
+    ? parseInt(process.env.SLEEP_EMPTY_ENERGY)
+    : 70,
+
   AUTO_UPGRADE_ENERGY_LIMIT: process.env.AUTO_UPGRADE_ENERGY_LIMIT
     ? process.env.AUTO_UPGRADE_ENERGY_LIMIT.toLowerCase() === "true"
     : true,

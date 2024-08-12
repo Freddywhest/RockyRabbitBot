@@ -215,6 +215,7 @@ class Tapper {
     let tasks_list = {};
     let config = {};
     let mine_sync = [];
+    let sleep_empty_energy = 0;
 
     if (settings.USE_PROXY_FROM_FILE && proxy) {
       http_client = axios.create({
@@ -342,68 +343,73 @@ class Tapper {
           process.exit(1);
         }
 
-        let count = _.random(
-          settings.RANDOM_TAPS_COUNT[0],
-          settings.RANDOM_TAPS_COUNT[1]
-        );
-        const eligible_count =
-          profile_data?.clicker?.availableTaps /
-          profile_data?.clicker?.earnPerTap;
-        if (
-          count <= eligible_count &&
-          profile_data?.clicker?.availableTaps > 0
-        ) {
-          const taps = await this.api.taps(http_client, { count });
-
-          if (taps?.status?.toLowerCase() === "ok") {
-            const balanceChange =
-              taps?.clicker?.balance - profile_data?.clicker?.balance;
-            profile_data = await this.api.get_user_data(http_client);
-            logger.info(
-              `${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
-            );
-          }
-        } else {
-          if (_.isEmpty(boosts_list)) {
-            continue;
-          }
-          const full_taps_data = this.#get_boost_by_id(
-            boosts_list,
-            "full-available-taps"
+        if (sleep_empty_energy <= currentTime) {
+          let count = _.random(
+            settings.RANDOM_TAPS_COUNT[0],
+            settings.RANDOM_TAPS_COUNT[1]
           );
-          if (_.isEmpty(full_taps_data)) {
-            continue;
-          }
-
+          const eligible_count =
+            profile_data?.clicker?.availableTaps /
+            profile_data?.clicker?.earnPerTap;
           if (
-            full_taps_data?.level < 6 &&
-            full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
-            settings.APPLY_DAILY_FULL_ENERGY
+            count <= eligible_count &&
+            profile_data?.clicker?.availableTaps > 0
           ) {
-            const full_energy_boost = await this.api.upgrade_boost(
-              http_client,
-              {
-                boostId: full_taps_data?.boostId,
-                timezone: app.timezone,
-              }
-            );
-            if (full_energy_boost?.status?.toLowerCase() === "ok") {
+            const taps = await this.api.taps(http_client, { count });
+
+            if (taps?.status?.toLowerCase() === "ok") {
+              const balanceChange =
+                taps?.clicker?.balance - profile_data?.clicker?.balance;
               profile_data = await this.api.get_user_data(http_client);
               logger.info(
-                `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                `${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
               );
+            }
+          } else {
+            if (_.isEmpty(boosts_list)) {
               continue;
             }
+            const full_taps_data = this.#get_boost_by_id(
+              boosts_list,
+              "full-available-taps"
+            );
+            if (_.isEmpty(full_taps_data)) {
+              continue;
+            }
+
+            if (
+              full_taps_data?.level < 6 &&
+              full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
+              settings.APPLY_DAILY_FULL_ENERGY
+            ) {
+              const full_energy_boost = await this.api.upgrade_boost(
+                http_client,
+                {
+                  boostId: full_taps_data?.boostId,
+                  timezone: app.timezone,
+                }
+              );
+              if (full_energy_boost?.status?.toLowerCase() === "ok") {
+                profile_data = await this.api.get_user_data(http_client);
+                logger.info(
+                  `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                );
+                continue;
+              }
+            }
+
+            sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
+
+            logger.info(
+              `${
+                this.session_name
+              } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
+                count * profile_data?.clicker?.earnPerTap
+              }</la> energy to send taps | Available: <bl>${
+                profile_data?.clicker?.availableTaps
+              }</bl> | Sleeping ${sleep_empty_energy}s`
+            );
           }
-          logger.info(
-            `${
-              this.session_name
-            } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
-              count * profile_data?.clicker?.earnPerTap
-            }</la> energy to send taps | Available: <bl>${
-              profile_data?.clicker?.availableTaps
-            }</bl>`
-          );
         }
 
         await sleep(2);

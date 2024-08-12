@@ -44,6 +44,7 @@
 | **AUTO_CLAIM_REWARD**         | Whether to claim the daily rewards (True / False)                         |
 | **RANDOM_TAPS_COUNT**         | Random number of taps (eg [100,200])                                      |
 | **SLEEP_BETWEEN_TAP**         | Random delay between taps in seconds (eg [50,60])                         |
+| **SLEEP_EMPTY_ENERGY**        | Delay when energy is empty (eg 70)                                        |
 | **USE_PROXY_FROM_FILE**       | Whether to use proxy from the `bot/config/proxies.js` file (True / False) |
 
 ## Installation
