@@ -409,7 +409,7 @@ class Tapper {
                 count * profile_data?.clicker?.earnPerTap
               }</la> energy to send taps | Available: <bl>${
                 profile_data?.clicker?.availableTaps
-              }</bl> | Sleeping ${sleep_empty_energy}s`
+              }</bl> | Sleeping ${settings.SLEEP_EMPTY_ENERGY}s`
             );
           }
         }
