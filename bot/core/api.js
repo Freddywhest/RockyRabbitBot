@@ -119,41 +119,21 @@ class ApiRequest {
     }
   }
 
-  async get_combo_info(http_client) {
+  async get_daily_sync_info(http_client) {
     try {
       http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
-        `${app.apiUrl}/api/v1/mine/combo/sync`
+        `${app.apiUrl}/api/v1/mine/sync/daily`
       );
       return response.data;
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting combo info:</b> ${error?.response?.data?.message}`
+          `${this.session_name} | Error while <b>getting daily sync info:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting combo info:</b> ${error.message}`
-        );
-      }
-    }
-  }
-
-  async get_enigma_info(http_client) {
-    try {
-      http_client.defaults.headers["host"] = app.host;
-      const response = await http_client.post(
-        `${app.apiUrl}/api/v1/mine/enigma/sync`
-      );
-      return response.data;
-    } catch (error) {
-      if (error?.response?.data?.message) {
-        logger.warning(
-          `${this.session_name} | Error while <b>getting enigma info:</b> ${error?.response?.data?.message}`
-        );
-      } else {
-        logger.error(
-          `${this.session_name} | Error while <b>getting enigma info:</b> ${error.message}`
+          `${this.session_name} | Error while <b>getting daily sync info:</b> ${error.message}`
         );
       }
     }

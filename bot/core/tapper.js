@@ -214,6 +214,7 @@ class Tapper {
     let sleep_daily_reward = 0;
     let tasks_list = {};
     let config = {};
+    let get_daily_sync_info = {};
     let mine_sync = [];
     let sleep_empty_energy = 0;
 
@@ -257,6 +258,7 @@ class Tapper {
         tasks_list = await this.api.tasks(http_client);
         config = await this.api.config(http_client);
         mine_sync = await this.api.mine_sync(http_client);
+        get_daily_sync_info = await this.api.get_daily_sync_info(http_client);
 
         if (
           _.isEmpty(profile_data) ||
@@ -420,10 +422,12 @@ class Tapper {
           const expireAtForCards =
             new Date(combo_data?.expireAtForCards) / 1000;
 
-          if (settings.AUTO_PLAY_ENIGMA && !_.isEmpty(combo_data?.enigma)) {
-            const play_enigma_data = await this.api.get_enigma_info(
-              http_client
-            );
+          if (
+            settings.AUTO_PLAY_ENIGMA &&
+            !_.isEmpty(combo_data?.enigma) &&
+            !_.isEmpty(get_daily_sync_info)
+          ) {
+            const play_enigma_data = get_daily_sync_info?.enigma;
 
             if (
               play_enigma_data?.completedAt < 1 &&
@@ -446,8 +450,12 @@ class Tapper {
             }
           }
 
-          if (settings.AUTO_PLAY_COMBO && !_.isEmpty(combo_data?.cards)) {
-            const combo_info = await this.api.get_combo_info(http_client);
+          if (
+            settings.AUTO_PLAY_COMBO &&
+            !_.isEmpty(combo_data?.cards) &&
+            !_.isEmpty(get_daily_sync_info)
+          ) {
+            const combo_info = get_daily_sync_info?.superSet;
 
             if (combo_info?.completedAt < 1 && expireAtForCards > currentTime) {
               const play_combo = await this.api.play_combo(http_client, {
