@@ -24,7 +24,7 @@
 | Random sleep time between clicks      |    ✅     |
 | Random number of taps                 |    ✅     |
 
-## [How to add query id](https://github.com/FreddyWhest/RockyRabbitBot/AddQueryId.md)
+## [How to add query id](https://github.com/Freddywhest/RockyRabbitBot/blob/main/AddQueryId.md)
 
 ## [Settings](https://github.com/FreddyWhest/RockyRabbitBot/blob/main/.env-example)
 
