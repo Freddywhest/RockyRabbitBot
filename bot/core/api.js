@@ -200,6 +200,27 @@ class ApiRequest {
     }
   }
 
+  async play_easter(http_client, data) {
+    try {
+      http_client.defaults.headers["host"] = app.host;
+      const response = await http_client.post(
+        `${app.apiUrl}/api/v1/mine/easter-eggs`,
+        JSON.stringify(data)
+      );
+      return response.data;
+    } catch (error) {
+      if (error?.response?.data?.message) {
+        logger.warning(
+          `${this.session_name} | Error while <b>playing easter egg:</b> ${error?.response?.data?.message}`
+        );
+      } else {
+        logger.error(
+          `${this.session_name} | Error while <b>playing easter egg:</b> ${error.message}`
+        );
+      }
+    }
+  }
+
   async get_boosts(http_client) {
     try {
       http_client.defaults.headers["host"] = app.host;

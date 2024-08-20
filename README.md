@@ -45,6 +45,7 @@
 | **MAX_ENERGY_LIMIT_LEVEL**    | Maximum energy limit level (eg 20)                                        |
 | **APPLY_DAILY_FULL_ENERGY**   | Whether to apply daily full energy (True / False)                         |
 | **AUTO_CLAIM_REWARD**         | Whether to claim the daily rewards (True / False)                         |
+| **AUTO_CLAIM_EASTER_EGG**     | Whether to claim the easter eggs (True / False)                           |
 | **USE_QUERY_ID**              | Whether to use query ids instead of sessions (True / False)               |
 | **RANDOM_TAPS_COUNT**         | Random number of taps (eg [100,200])                                      |
 | **SLEEP_BETWEEN_TAP**         | Random delay between taps in seconds (eg [50,60])                         |

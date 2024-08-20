@@ -32,6 +32,10 @@ const settings = {
     ? process.env.AUTO_UPGRADE_TAP.toLowerCase() === "true"
     : true,
 
+  AUTO_CLAIM_EASTER_EGG: process.env.AUTO_CLAIM_EASTER_EGG
+    ? process.env.AUTO_CLAIM_EASTER_EGG.toLowerCase() === "true"
+    : true,
+
   MAX_TAP_LEVEL: process.env.MAX_TAP_LEVEL
     ? parseInt(process.env.MAX_TAP_LEVEL)
     : 10,

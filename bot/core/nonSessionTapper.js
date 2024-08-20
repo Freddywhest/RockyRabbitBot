@@ -215,7 +215,6 @@ class NonSessionTapper {
             logger.warning(
               `${this.session_name} | Join Rocky Rabbit telegram channel before daily reward can be claimed. Skipping...`
             );
-            continue;
           } else if (
             typeof reward_data === "string" &&
             reward_data.includes("claimed")
@@ -330,6 +329,8 @@ class NonSessionTapper {
         if (!_.isEmpty(combo_data)) {
           const expireAtForCards =
             new Date(combo_data?.expireAtForCards) / 1000;
+          const expireAtForEaster =
+            new Date(combo_data?.expireAtForEaster).getTime() / 1000;
 
           if (
             settings.AUTO_PLAY_ENIGMA &&
@@ -382,10 +383,34 @@ class NonSessionTapper {
               }
             }
           }
+
+          if (
+            settings.AUTO_CLAIM_EASTER_EGG &&
+            !_.isEmpty(combo_data?.easter) &&
+            !_.isEmpty(get_daily_sync_info?.easterEggs)
+          ) {
+            const easter_info = get_daily_sync_info?.easterEggs;
+
+            if (
+              easter_info?.completedAt < 1 &&
+              expireAtForEaster > currentTime
+            ) {
+              const play_easter = await this.api.play_easter(http_client, {
+                easter: combo_data?.easter,
+                easterEggsId: easter_info?.easterEggsId,
+              });
+
+              if (play_easter?.status?.toLowerCase() === "ok") {
+                profile_data = await this.api.get_user_data(http_client);
+                logger.info(
+                  `${this.session_name} | 🎊 Easter Egg claimed successfully | Reward: <la>${easter_info?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb></ye>`
+                );
+              }
+            }
+          }
         }
 
         await sleep(3);
-
         // Boost upgrade (earn-per-tap)
         const tap_boost_data = this.#get_boost_by_id(
           boosts_list,

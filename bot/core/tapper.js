@@ -117,6 +117,7 @@ class Tapper {
   async #get_tg_web_data() {
     try {
       await this.tg_client.start();
+      logger.info(`${this.session_name} | 📡 Waiting for authorization...`);
       const platform = this.#get_platform(this.#get_user_agent());
       const get_bot_chat_history = await this.tg_client.invoke(
         new Api.messages.GetHistory({
@@ -420,7 +421,10 @@ class Tapper {
         const combo_data = await this.api.get_combo_data(http_client);
         if (!_.isEmpty(combo_data)) {
           const expireAtForCards =
-            new Date(combo_data?.expireAtForCards) / 1000;
+            new Date(combo_data?.expireAtForCards).getTime() / 1000;
+
+          const expireAtForEaster =
+            new Date(combo_data?.expireAtForEaster).getTime() / 1000;
 
           if (
             settings.AUTO_PLAY_ENIGMA &&
@@ -444,7 +448,7 @@ class Tapper {
               if (play_enigma?.status?.toLowerCase() === "ok") {
                 profile_data = await this.api.get_user_data(http_client);
                 logger.info(
-                  `${this.session_name} | 🎊 Enigma played successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                  `${this.session_name} | 🎊 Enigma claimed successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
                 );
               }
             }
@@ -468,7 +472,32 @@ class Tapper {
               if (play_combo?.status?.toLowerCase() === "ok") {
                 profile_data = await this.api.get_user_data(http_client);
                 logger.info(
-                  `${this.session_name} | 🎊 Combo played successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                  `${this.session_name} | 🎊 Daily combo claimed successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
+                );
+              }
+            }
+          }
+
+          if (
+            settings.AUTO_CLAIM_EASTER_EGG &&
+            !_.isEmpty(combo_data?.easter) &&
+            !_.isEmpty(get_daily_sync_info?.easterEggs)
+          ) {
+            const easter_info = get_daily_sync_info?.easterEggs;
+
+            if (
+              easter_info?.completedAt < 1 &&
+              expireAtForEaster > currentTime
+            ) {
+              const play_easter = await this.api.play_easter(http_client, {
+                easter: combo_data?.easter,
+                easterEggsId: easter_info?.easterEggsId,
+              });
+
+              if (play_easter?.status?.toLowerCase() === "ok") {
+                profile_data = await this.api.get_user_data(http_client);
+                logger.info(
+                  `${this.session_name} | 🎊 Easter Egg claimed successfully | Reward: <la>${easter_info?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb></ye>`
                 );
               }
             }
