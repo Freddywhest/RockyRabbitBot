@@ -8,8 +8,9 @@
 
 | Functional                            | Supported |
 | ------------------------------------- | :-------: |
-| Playing daily combo                   |    ✅     |
-| Playing daily enigma                  |    ✅     |
+| Claiming of daily combo               |    ✅     |
+| Claiming of daily enigma              |    ✅     |
+| Claiming of daily easter eggs         |    ✅     |
 | Claiming daily rewards                |    ✅     |
 | Completing tasks                      |    ✅     |
 | Applying boosts                       |    ✅     |
