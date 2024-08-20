@@ -6,22 +6,25 @@
 
 ## Functionality
 
-| Functional                       | Supported |
-| -------------------------------- | :-------: |
-| Playing daily combo              |    ✅     |
-| Playing daily enigma             |    ✅     |
-| Claiming daily rewards           |    ✅     |
-| Completing tasks                 |    ✅     |
-| Applying boosts                  |    ✅     |
-| Upgrading taps                   |    ✅     |
-| Upgrading hourly limit           |    ✅     |
-| Upgrading energy limit           |    ✅     |
-| Upgrading cards limit            |    ✅     |
-| Tapping                          |    ✅     |
-| Multithreading                   |    ✅     |
-| Binding a proxy to a session     |    ✅     |
-| Random sleep time between clicks |    ✅     |
-| Random number of taps            |    ✅     |
+| Functional                            | Supported |
+| ------------------------------------- | :-------: |
+| Playing daily combo                   |    ✅     |
+| Playing daily enigma                  |    ✅     |
+| Claiming daily rewards                |    ✅     |
+| Completing tasks                      |    ✅     |
+| Applying boosts                       |    ✅     |
+| Upgrading taps                        |    ✅     |
+| Upgrading hourly limit                |    ✅     |
+| Upgrading energy limit                |    ✅     |
+| Upgrading cards limit                 |    ✅     |
+| Tapping                               |    ✅     |
+| Multithreading                        |    ✅     |
+| Use sessions/query_ids                |    ✅     |
+| Binding a proxy to a session/query_id |    ✅     |
+| Random sleep time between clicks      |    ✅     |
+| Random number of taps                 |    ✅     |
+
+## [How to add query id](https://github.com/FreddyWhest/RockyRabbitBot/AddQueryId.md)
 
 ## [Settings](https://github.com/FreddyWhest/RockyRabbitBot/blob/main/.env-example)
 
@@ -42,6 +45,7 @@
 | **MAX_ENERGY_LIMIT_LEVEL**    | Maximum energy limit level (eg 20)                                        |
 | **APPLY_DAILY_FULL_ENERGY**   | Whether to apply daily full energy (True / False)                         |
 | **AUTO_CLAIM_REWARD**         | Whether to claim the daily rewards (True / False)                         |
+| **USE_QUERY_ID**              | Whether to use query ids instead of sessions (True / False)               |
 | **RANDOM_TAPS_COUNT**         | Random number of taps (eg [100,200])                                      |
 | **SLEEP_BETWEEN_TAP**         | Random delay between taps in seconds (eg [50,60])                         |
 | **SLEEP_EMPTY_ENERGY**        | Delay when energy is empty (eg 70)                                        |

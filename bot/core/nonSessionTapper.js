@@ -1,7 +1,6 @@
 const { default: axios } = require("axios");
 const logger = require("../utils/logger");
 const headers = require("./header");
-const { Api } = require("telegram");
 const { SocksProxyAgent } = require("socks-proxy-agent");
 const settings = require("../config/config");
 const app = require("../config/app");
@@ -9,18 +8,16 @@ const user_agents = require("../config/userAgents");
 const fs = require("fs");
 const sleep = require("../utils/sleep");
 const ApiRequest = require("./api");
-const parser = require("../utils/parser");
 const _ = require("lodash");
 const moment = require("moment");
 const filterArray = require("../helpers/filterArray");
 const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
 const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
-const syncronizingChecker = require("../utils/snycronizingChecker");
 
-class Tapper {
-  constructor(tg_client) {
-    this.session_name = tg_client.session_name;
-    this.tg_client = tg_client.tg_client;
+class NonSessionTapper {
+  constructor(query_id, query_name) {
+    this.session_name = query_name;
+    this.query_id = query_id;
     this.API_URL = app.apiUrl;
     this.session_user_agents = this.#load_session_data();
     this.headers = { ...headers, "user-agent": this.#get_user_agent() };
@@ -38,15 +35,6 @@ class Tapper {
         throw error;
       }
     }
-  }
-
-  #clean_tg_web_data(queryString) {
-    let cleanedString = queryString.replace(/^tgWebAppData=/, "");
-    cleanedString = cleanedString
-      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=ios$/, "")
-      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=android$/, "");
-
-    return cleanedString;
   }
 
   #get_random_user_agent() {
@@ -114,72 +102,6 @@ class Tapper {
     }
   }
 
-  async #get_tg_web_data() {
-    try {
-      await this.tg_client.start();
-      const platform = this.#get_platform(this.#get_user_agent());
-      const get_bot_chat_history = await this.tg_client.invoke(
-        new Api.messages.GetHistory({
-          peer: await this.tg_client.getInputEntity(app.peer),
-          limit: 1,
-        })
-      );
-
-      //
-      await syncronizingChecker(this.#channel_checker, this.tg_client);
-
-      if (get_bot_chat_history.messages.length < 1) {
-        await this.tg_client.invoke(
-          new Api.messages.SendMessage({
-            message: "/start",
-            silent: true,
-            peer: await this.tg_client.getInputEntity(app.peer),
-          })
-        );
-      }
-
-      const result = await this.tg_client.invoke(
-        new Api.messages.RequestWebView({
-          peer: await this.tg_client.getInputEntity(app.peer),
-          bot: await this.tg_client.getInputEntity(app.bot),
-          platform,
-          from_bot_menu: true,
-          url: app.webviewUrl,
-        })
-      );
-
-      const authUrl = result.url;
-      const tgWebData = authUrl.split("#", 2)[1];
-      const data = parser.toJson(
-        decodeURIComponent(this.#clean_tg_web_data(tgWebData))
-      );
-      return parser.toQueryString(data);
-    } catch (error) {
-      logger.error(
-        `${this.session_name} | ❗️Unknown error during Authorization: ${error}`
-      );
-      throw error;
-    } finally {
-      /* await this.tg_client.disconnect(); */
-      await sleep(1);
-      logger.info(`${this.session_name} | 🚀 Starting session...`);
-    }
-  }
-
-  async #channel_checker(tg, channelName) {
-    try {
-      await tg.invoke(
-        new Api.channels.GetParticipant({
-          channel: await tg.getInputEntity(channelName),
-          participant: await tg.getInputEntity("me"),
-        })
-      );
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
   async #check_proxy(http_client, proxy) {
     try {
       http_client.defaults.headers["host"] = "httpbin.org";
@@ -208,7 +130,6 @@ class Tapper {
 
   async run(proxy) {
     let http_client;
-    let access_token_created_time = 0;
 
     let profile_data, boosts_list;
     let sleep_daily_reward = 0;
@@ -240,18 +161,15 @@ class Tapper {
     while (true) {
       try {
         const currentTime = _.floor(Date.now() / 1000);
-        if (currentTime - access_token_created_time >= 3600) {
-          http_client.defaults.headers["host"] = app.host;
-          http_client.defaults.headers["sec-ch-ua-platform"] =
-            this.#get_platform(this.#get_user_agent());
+        http_client.defaults.headers["host"] = app.host;
+        http_client.defaults.headers["sec-ch-ua-platform"] = this.#get_platform(
+          this.#get_user_agent()
+        );
 
-          const tg_web_data = await this.#get_tg_web_data();
+        const tg_web_data = await this.query_id;
 
-          http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
-
-          access_token_created_time = currentTime;
-          await sleep(2);
-        }
+        http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
+        await sleep(2);
         // Get profile data
         profile_data = await this.api.get_user_data(http_client);
         boosts_list = await this.api.get_boosts(http_client);
@@ -264,8 +182,6 @@ class Tapper {
           _.isEmpty(profile_data) ||
           profile_data?.status?.toLowerCase() !== "ok"
         ) {
-          access_token_created_time = 0;
-
           continue;
         }
 
@@ -296,15 +212,8 @@ class Tapper {
             typeof reward_data === "string" &&
             reward_data.includes("not_subscribed")
           ) {
-            logger.info(
-              `${this.session_name} |⌛Joining RockyRabit channel before claiming daily reward...`
-            );
-            await this.tg_client.invoke(
-              new Api.channels.JoinChannel({
-                channel: await this.tg_client.getInputEntity(
-                  app.rockyRabitChannel
-                ),
-              })
+            logger.warning(
+              `${this.session_name} | Join Rocky Rabbit telegram channel before daily reward can be claimed. Skipping...`
             );
             continue;
           } else if (
@@ -721,4 +630,4 @@ class Tapper {
     }
   }
 }
-module.exports = Tapper;
+module.exports = NonSessionTapper;
