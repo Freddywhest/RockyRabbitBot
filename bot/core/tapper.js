@@ -42,10 +42,10 @@ class Tapper {
 
   #clean_tg_web_data(queryString) {
     let cleanedString = queryString.replace(/^tgWebAppData=/, "");
-    cleanedString = cleanedString
-      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=ios$/, "")
-      .replace(/&tgWebAppVersion=7\.4&tgWebAppPlatform=android$/, "");
-
+    cleanedString = cleanedString.replace(
+      /&tgWebAppVersion=.*?&tgWebAppPlatform=.*?(?:&tgWebAppBotInline=.*?)?$/,
+      ""
+    );
     return cleanedString;
   }
 
@@ -347,71 +347,82 @@ class Tapper {
         }
 
         if (sleep_empty_energy <= currentTime) {
-          let count = _.random(
-            settings.RANDOM_TAPS_COUNT[0],
-            settings.RANDOM_TAPS_COUNT[1]
-          );
-          const eligible_count =
-            profile_data?.clicker?.availableTaps /
-            profile_data?.clicker?.earnPerTap;
-          if (
-            count <= eligible_count &&
-            profile_data?.clicker?.availableTaps > 0
+          while (
+            profile_data?.clicker?.availableTaps > settings.MIN_AVAILABLE_ENERGY
           ) {
-            const taps = await this.api.taps(http_client, { count });
+            let taps = _.random(
+              settings.RANDOM_TAPS_COUNT[0],
+              settings.RANDOM_TAPS_COUNT[1]
+            );
+            const taps_can_send =
+              profile_data?.clicker?.availableTaps /
+              profile_data?.clicker?.earnPerTap;
+            const count =
+              taps > _.floor(taps_can_send) ? _.floor(taps_can_send) : taps;
+            const taps_result = await this.api.taps(http_client, { count });
 
-            if (taps?.status?.toLowerCase() === "ok") {
+            if (taps_result?.status?.toLowerCase() === "ok") {
               const balanceChange =
-                taps?.clicker?.balance - profile_data?.clicker?.balance;
+                taps_result?.clicker?.balance - profile_data?.clicker?.balance;
               profile_data = await this.api.get_user_data(http_client);
+              boosts_list = await this.api.get_boosts(http_client);
               logger.info(
                 `${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
               );
             }
-          } else {
-            if (_.isEmpty(boosts_list)) {
-              continue;
-            }
-            const full_taps_data = this.#get_boost_by_id(
-              boosts_list,
-              "full-available-taps"
-            );
-            if (_.isEmpty(full_taps_data)) {
-              continue;
-            }
+
+            profile_data = await this.api.get_user_data(http_client);
+            boosts_list = await this.api.get_boosts(http_client);
 
             if (
-              full_taps_data?.level < 6 &&
-              full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
-              settings.APPLY_DAILY_FULL_ENERGY
+              profile_data?.clicker?.availableTaps <=
+              settings.MIN_AVAILABLE_ENERGY
             ) {
-              const full_energy_boost = await this.api.upgrade_boost(
-                http_client,
-                {
-                  boostId: full_taps_data?.boostId,
-                  timezone: app.timezone,
-                }
+              if (_.isEmpty(boosts_list)) {
+                break;
+              }
+              const full_taps_data = this.#get_boost_by_id(
+                boosts_list,
+                "full-available-taps"
               );
-              if (full_energy_boost?.status?.toLowerCase() === "ok") {
-                profile_data = await this.api.get_user_data(http_client);
-                logger.info(
-                  `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+              if (_.isEmpty(full_taps_data)) {
+                break;
+              }
+
+              if (
+                full_taps_data?.level < 6 &&
+                full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
+                settings.APPLY_DAILY_FULL_ENERGY
+              ) {
+                const full_energy_boost = await this.api.upgrade_boost(
+                  http_client,
+                  {
+                    boostId: full_taps_data?.boostId,
+                    timezone: app.timezone,
+                  }
                 );
-                continue;
+                if (full_energy_boost?.status?.toLowerCase() === "ok") {
+                  profile_data = await this.api.get_user_data(http_client);
+                  logger.info(
+                    `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                  );
+                }
+              } else {
+                profile_data = await this.api.get_user_data(http_client);
+                sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
+
+                logger.info(
+                  `${
+                    this.session_name
+                  } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
+                    count * profile_data?.clicker?.earnPerTap
+                  }</la> energy to send taps | Available: <bl>${
+                    profile_data?.clicker?.availableTaps
+                  }</bl> | Sleeping ${settings.SLEEP_EMPTY_ENERGY}s`
+                );
+                break;
               }
             }
-
-            sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
-
-            logger.info(
-              `${
-                this.session_name
-              } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
-                count * profile_data?.clicker?.earnPerTap
-              }</la> energy to send taps | Available: <bl>${
-                profile_data?.clicker?.availableTaps
-              }</bl> | Sleeping ${settings.SLEEP_EMPTY_ENERGY}s`
-            );
           }
         }
 

@@ -91,6 +91,10 @@ const settings = {
   USE_QUERY_ID: process.env.USE_QUERY_ID
     ? process.env.USE_QUERY_ID.toLowerCase() === "true"
     : false,
+
+  MIN_AVAILABLE_ENERGY: process.env.MIN_AVAILABLE_ENERGY
+    ? parseInt(process.env.MIN_AVAILABLE_ENERGY)
+    : 100,
 };
 
 module.exports = settings;
