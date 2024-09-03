@@ -13,20 +13,23 @@ const moment = require("moment");
 const filterArray = require("../helpers/filterArray");
 const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
 const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
+const path = require("path");
 
 class NonSessionTapper {
   constructor(query_id, query_name) {
+    this.bot_name = "rockyrabbit";
     this.session_name = query_name;
     this.query_id = query_id;
     this.API_URL = app.apiUrl;
     this.session_user_agents = this.#load_session_data();
     this.headers = { ...headers, "user-agent": this.#get_user_agent() };
-    this.api = new ApiRequest(this.session_name);
+    this.api = new ApiRequest(this.session_name, this.bot_name);
   }
 
   #load_session_data() {
     try {
-      const data = fs.readFileSync("session_user_agents.json", "utf8");
+      const filePath = path.join(process.cwd(), "session_user_agents.json");
+      const data = fs.readFileSync(filePath, "utf8");
       return JSON.parse(data);
     } catch (error) {
       if (error.code === "ENOENT") {
@@ -47,7 +50,9 @@ class NonSessionTapper {
       return this.session_user_agents[this.session_name];
     }
 
-    logger.info(`${this.session_name} | Generating new user agent...`);
+    logger.info(
+      `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Generating new user agent...`
+    );
     const newUserAgent = this.#get_random_user_agent();
     this.session_user_agents[this.session_name] = newUserAgent;
     this.#save_session_data(this.session_user_agents);
@@ -55,10 +60,8 @@ class NonSessionTapper {
   }
 
   #save_session_data(session_user_agents) {
-    fs.writeFileSync(
-      "session_user_agents.json",
-      JSON.stringify(session_user_agents, null, 2)
-    );
+    const filePath = path.join(process.cwd(), "session_user_agents.json");
+    fs.writeFileSync(filePath, JSON.stringify(session_user_agents, null, 2));
   }
 
   #get_boost_by_id(data, boostId) {
@@ -94,7 +97,7 @@ class NonSessionTapper {
       return new SocksProxyAgent(proxy_url);
     } catch (e) {
       logger.error(
-        `${
+        `<ye>[${this.bot_name}]</ye> | ${
           this.session_name
         } | Proxy agent error: ${e}\nProxy: ${JSON.stringify(proxy, null, 2)}`
       );
@@ -104,10 +107,11 @@ class NonSessionTapper {
 
   async #check_proxy(http_client, proxy) {
     try {
-      http_client.defaults.headers["host"] = "httpbin.org";
       const response = await http_client.get("https://httpbin.org/ip");
       const ip = response.data.origin;
-      logger.info(`${this.session_name} | Proxy IP: ${ip}`);
+      logger.info(
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Proxy IP: ${ip}`
+      );
     } catch (error) {
       if (
         error.message.includes("ENOTFOUND") ||
@@ -115,12 +119,14 @@ class NonSessionTapper {
         error.message.includes("ECONNREFUSED")
       ) {
         logger.error(
-          `${this.session_name} | Error: Unable to resolve the proxy address. The proxy server at ${proxy.ip}:${proxy.port} could not be found. Please check the proxy address and your network connection.`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error: Unable to resolve the proxy address. The proxy server at ${proxy.ip}:${proxy.port} could not be found. Please check the proxy address and your network connection.`
         );
-        logger.error(`${this.session_name} | No proxy will be used.`);
+        logger.error(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | No proxy will be used.`
+        );
       } else {
         logger.error(
-          `${this.session_name} | Proxy: ${proxy.ip}:${proxy.port} | Error: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Proxy: ${proxy.ip}:${proxy.port} | Error: ${error.message}`
         );
       }
 
@@ -137,6 +143,8 @@ class NonSessionTapper {
     let config = {};
     let get_daily_sync_info = {};
     let mine_sync = [];
+    let exceeded_energy = 0;
+    let exceeded_turbo = 0;
     let sleep_empty_energy = 0;
 
     if (settings.USE_PROXY_FROM_FILE && proxy) {
@@ -200,7 +208,7 @@ class NonSessionTapper {
 
         if (profile_data?.clicker?.lastPassiveEarn > 0) {
           logger.info(
-            `${this.session_name} | 💸 Last passive earn: <gr>+${profile_data?.clicker?.lastPassiveEarn}</gr> | Earn per hour: <ye>${profile_data?.clicker?.earnPassivePerHour}</ye>`
+            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 💸 Last passive earn: <gr>+${profile_data?.clicker?.lastPassiveEarn}</gr> | Earn per hour: <ye>${profile_data?.clicker?.earnPassivePerHour}</ye>`
           );
         }
 
@@ -212,9 +220,17 @@ class NonSessionTapper {
             typeof reward_data === "string" &&
             reward_data.includes("not_subscribed")
           ) {
-            logger.warning(
-              `${this.session_name} | Join Rocky Rabbit telegram channel before daily reward can be claimed. Skipping...`
+            logger.info(
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} |⌛Joining RockyRabit channel before claiming daily reward...`
             );
+            await this.tg_client.invoke(
+              new Api.channels.JoinChannel({
+                channel: await this.tg_client.getInputEntity(
+                  app.rockyRabitChannel
+                ),
+              })
+            );
+            continue;
           } else if (
             typeof reward_data === "string" &&
             reward_data.includes("claimed")
@@ -222,12 +238,12 @@ class NonSessionTapper {
             sleep_daily_reward =
               new Date(moment().add(1, "days").startOf("day")).getTime() / 1000;
             logger.info(
-              `${this.session_name} | 🚶 Daily reward already claimed. Skipping...`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🚶 Daily reward already claimed. Skipping...`
             );
           } else if (reward_data?.status?.toLowerCase() === "ok") {
             profile_data = await this.api.get_user_data(http_client);
             logger.info(
-              `${this.session_name} | 🎉 Claimed daily reward successfully | Reward: <lb>${reward_data?.task?.rewardCoins}</lb> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎉 Claimed daily reward successfully | Reward: <lb>${reward_data?.task?.rewardCoins}</lb> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
             );
             sleep_daily_reward =
               new Date(moment().add(1, "days").startOf("day")).getTime() / 1000;
@@ -239,7 +255,7 @@ class NonSessionTapper {
         //Send taps
         if (settings.RANDOM_TAPS_COUNT[0] > settings.RANDOM_TAPS_COUNT[1]) {
           logger.error(
-            `${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN must be less than RANDOM_TAPS_COUNT MAX. Example: RANDOM_TAPS_COUNT: [10, 20]`
+            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN must be less than RANDOM_TAPS_COUNT MAX. Example: RANDOM_TAPS_COUNT: [10, 20]`
           );
           process.exit(1);
         }
@@ -248,7 +264,7 @@ class NonSessionTapper {
           !_.isInteger(settings.RANDOM_TAPS_COUNT[1])
         ) {
           logger.error(
-            `${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN and MAX must be integers/numbers. Example: RANDOM_TAPS_COUNT: [10, 20]`
+            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ❗️Invalid Random Taps Count. RANDOM_TAPS_COUNT MIN and MAX must be integers/numbers. Example: RANDOM_TAPS_COUNT: [10, 20]`
           );
           process.exit(1);
         }
@@ -261,6 +277,30 @@ class NonSessionTapper {
               settings.RANDOM_TAPS_COUNT[0],
               settings.RANDOM_TAPS_COUNT[1]
             );
+            boosts_list = await this.api.get_boosts(http_client);
+            if (
+              !moment(exceeded_turbo * 1000).isSame(new Date().getTime(), "day")
+            ) {
+              const turbo_data = this.#get_boost_by_id(boosts_list, "turbo");
+
+              const turbo_boost = await this.api.upgrade_boost(http_client, {
+                boostId: turbo_data?.boostId,
+                timezone: app.timezone,
+              });
+
+              if (turbo_boost?.status?.toLowerCase() === "ok") {
+                logger.info(
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ⏩ Turbo boost activated.`
+                );
+                await sleep(5);
+              } else if (
+                typeof turbo_boost == "string" &&
+                turbo_boost.includes("exceeded")
+              ) {
+                exceeded_turbo = currentTime;
+              }
+            }
+
             const taps_can_send =
               profile_data?.clicker?.availableTaps /
               profile_data?.clicker?.earnPerTap;
@@ -272,9 +312,8 @@ class NonSessionTapper {
               const balanceChange =
                 taps_result?.clicker?.balance - profile_data?.clicker?.balance;
               profile_data = await this.api.get_user_data(http_client);
-              boosts_list = await this.api.get_boosts(http_client);
               logger.info(
-                `${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
               );
             }
 
@@ -297,9 +336,12 @@ class NonSessionTapper {
               }
 
               if (
-                full_taps_data?.level < 6 &&
                 full_taps_data?.lastUpgradeAt + 3605 <= currentTime &&
-                settings.APPLY_DAILY_FULL_ENERGY
+                settings.APPLY_DAILY_FULL_ENERGY &&
+                !moment(exceeded_energy * 1000).isSame(
+                  new Date().getTime(),
+                  "day"
+                )
               ) {
                 const full_energy_boost = await this.api.upgrade_boost(
                   http_client,
@@ -308,10 +350,19 @@ class NonSessionTapper {
                     timezone: app.timezone,
                   }
                 );
+
+                if (
+                  typeof full_energy_boost == "string" &&
+                  full_energy_boost.includes("exceeded")
+                ) {
+                  exceeded_energy = currentTime;
+                  break;
+                }
+
                 if (full_energy_boost?.status?.toLowerCase() === "ok") {
                   profile_data = await this.api.get_user_data(http_client);
                   logger.info(
-                    `${this.session_name} | 🔋Full energy boost applied successfully | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                    `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🔋Full energy boost applied successfully`
                   );
                 }
               } else {
@@ -319,7 +370,7 @@ class NonSessionTapper {
                 sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
 
                 logger.info(
-                  `${
+                  `<ye>[${this.bot_name}]</ye> | ${
                     this.session_name
                   } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
                     count * profile_data?.clicker?.earnPerTap
@@ -339,7 +390,8 @@ class NonSessionTapper {
         const combo_data = await this.api.get_combo_data(http_client);
         if (!_.isEmpty(combo_data)) {
           const expireAtForCards =
-            new Date(combo_data?.expireAtForCards) / 1000;
+            new Date(combo_data?.expireAtForCards).getTime() / 1000;
+
           const expireAtForEaster =
             new Date(combo_data?.expireAtForEaster).getTime() / 1000;
 
@@ -365,7 +417,7 @@ class NonSessionTapper {
               if (play_enigma?.status?.toLowerCase() === "ok") {
                 profile_data = await this.api.get_user_data(http_client);
                 logger.info(
-                  `${this.session_name} | 🎊 Enigma played successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Enigma claimed successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
                 );
               }
             }
@@ -389,7 +441,7 @@ class NonSessionTapper {
               if (play_combo?.status?.toLowerCase() === "ok") {
                 profile_data = await this.api.get_user_data(http_client);
                 logger.info(
-                  `${this.session_name} | 🎊 Combo played successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Daily combo claimed successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
                 );
               }
             }
@@ -414,7 +466,7 @@ class NonSessionTapper {
               if (play_easter?.status?.toLowerCase() === "ok") {
                 profile_data = await this.api.get_user_data(http_client);
                 logger.info(
-                  `${this.session_name} | 🎊 Easter Egg claimed successfully | Reward: <la>${easter_info?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb></ye>`
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Easter Egg claimed successfully | Reward: <la>${easter_info?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb></ye>`
                 );
               }
             }
@@ -422,6 +474,7 @@ class NonSessionTapper {
         }
 
         await sleep(3);
+
         // Boost upgrade (earn-per-tap)
         const tap_boost_data = this.#get_boost_by_id(
           boosts_list,
@@ -441,7 +494,7 @@ class NonSessionTapper {
           if (tap_boost?.status?.toLowerCase() === "ok") {
             profile_data = await this.api.get_user_data(http_client);
             logger.info(
-              `${this.session_name} | <gr>⬆️</gr> Tap upgraded successfully | Level: <la>${tap_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Tap upgraded successfully | Level: <la>${tap_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
           }
         }
@@ -466,7 +519,7 @@ class NonSessionTapper {
           if (energy_boost?.status?.toLowerCase() === "ok") {
             profile_data = await this.api.get_user_data(http_client);
             logger.info(
-              `${this.session_name} | <gr>⬆️</gr> Energy limit upgraded successfully | Level: <la>${energy_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Energy limit upgraded successfully | Level: <la>${energy_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
           }
         }
@@ -492,7 +545,7 @@ class NonSessionTapper {
           if (hourly_limit?.status?.toLowerCase() === "ok") {
             profile_data = await this.api.get_user_data(http_client);
             logger.info(
-              `${this.session_name} | <gr>⬆️</gr> Hourly limit upgraded successfully | Level: <la>${hourly_limit_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Hourly limit upgraded successfully | Level: <la>${hourly_limit_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
           }
         }
@@ -513,11 +566,11 @@ class NonSessionTapper {
                 });
                 if (complete_task?.status?.toLowerCase() === "ok") {
                   logger.info(
-                    `${this.session_name} | ✔️ Task completed successfully | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
+                    `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ✔️ Task completed successfully | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
                   );
                 } else {
                   logger.error(
-                    `${this.session_name} | ✖️ Could not complete task | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
+                    `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ✖️ Could not complete task | Task title: <la>${task?.name}</la> | Reward: <lb>${task?.rewardCoins}</lb>`
                   );
                 }
               }
@@ -586,7 +639,8 @@ class NonSessionTapper {
                   cards_fighter_level,
                   http_client,
                   this.api,
-                  this.session_name
+                  this.session_name,
+                  this.bot_name
                 );
                 mine_sync = await this.api.mine_sync(http_client);
                 continue;
@@ -595,7 +649,8 @@ class NonSessionTapper {
                   cards_coach_level,
                   http_client,
                   this.api,
-                  this.session_name
+                  this.session_name,
+                  this.bot_name
                 );
                 mine_sync = await this.api.mine_sync(http_client);
                 continue;
@@ -613,12 +668,12 @@ class NonSessionTapper {
                   profile_data = await this.api.get_user_data(http_client);
 
                   logger.info(
-                    `${this.session_name} | <gr>⬆️</gr> League_${level} upgraded successfully | Level: <bl>${leagues[i]?.level}</bl> | Cost: <re>${leagues[i]?.price}</re> | Balance: <la>${profile_data?.clicker?.balance}</la>`
+                    `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> League_${level} upgraded successfully | Level: <bl>${leagues[i]?.level}</bl> | Cost: <re>${leagues[i]?.price}</re> | Balance: <la>${profile_data?.clicker?.balance}</la>`
                   );
                 }
               } else {
                 logger.info(
-                  `${this.session_name} | <re>👎</re> Not enough balance to upgrade league <bl>${level}</bl> | Need: <la>${leagues[i]?.price}</la> | Balance: <lb>${profile_data?.clicker?.balance}</lb>`
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <re>👎</re> Not enough balance to upgrade league <bl>${level}</bl> | Need: <la>${leagues[i]?.price}</la> | Balance: <lb>${profile_data?.clicker?.balance}</lb>`
                 );
                 continue;
               }
@@ -636,12 +691,15 @@ class NonSessionTapper {
             cards_wnc,
             this.api,
             http_client,
-            this.session_name
+            this.session_name,
+            this.bot_name
           );
         }
       } catch (error) {
         //traceback(error);
-        logger.error(`${this.session_name} | ❗️Unknown error: ${error}}`);
+        logger.error(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ❗️Unknown error: ${error}}`
+        );
       } finally {
         if (
           _.isInteger(settings.SLEEP_BETWEEN_TAP[0]) &&
@@ -652,13 +710,13 @@ class NonSessionTapper {
             settings.SLEEP_BETWEEN_TAP[1]
           );
           logger.info(
-            `${this.session_name} | Sleeping for ${start_sleep} seconds...`
+            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Sleeping for ${start_sleep} seconds...`
           );
           await sleep(start_sleep);
         } else {
           const end_sleep = _.random(30, 50);
           logger.info(
-            `${this.session_name} | Sleeping for ${end_sleep} seconds...`
+            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Sleeping for ${end_sleep} seconds...`
           );
           await sleep(end_sleep);
         }

@@ -4,7 +4,8 @@ const sleep = require("../utils/sleep");
 const _ = require("lodash");
 
 class ApiRequest {
-  constructor(session_name) {
+  constructor(session_name, bot_name) {
+    this.bot_name = bot_name;
     this.session_name = session_name;
   }
 
@@ -18,13 +19,15 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.error(
-          `${this.session_name} | Error while <b>getting User Data:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting User Data:</b> ${error?.response?.data?.message}`
         );
       } else {
         const regex = /ENOTFOUND\s([^\s]+)/;
         const match = error.message.match(regex);
         logger.error(
-          `${this.session_name} | Error while getting User Data: ${
+          `<ye>[${this.bot_name}]</ye> | ${
+            this.session_name
+          } | Error while getting User Data: ${
             error.message.includes("ENOTFOUND") ||
             error.message.includes("getaddrinfo") ||
             error.message.includes("ECONNREFUSED")
@@ -56,11 +59,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>initting account:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>initting account:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>initting account:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>initting account:</b> ${error.message}`
         );
       }
     }
@@ -91,11 +94,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>setting sponsor:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>setting sponsor:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>setting sponsor:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>setting sponsor:</b> ${error.message}`
         );
       }
     }
@@ -109,11 +112,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting config:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting config:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting config:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting config:</b> ${error.message}`
         );
       }
     }
@@ -129,11 +132,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting daily sync info:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting daily sync info:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting daily sync info:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting daily sync info:</b> ${error.message}`
         );
       }
     }
@@ -148,11 +151,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting tasks:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting tasks:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting tasks:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting tasks:</b> ${error.message}`
         );
       }
     }
@@ -169,11 +172,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>playing enigma:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing enigma:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>playing enigma:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing enigma:</b> ${error.message}`
         );
       }
     }
@@ -190,11 +193,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>playing combo</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing combo</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>playing combo</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing combo</b>: ${error.message}`
         );
       }
     }
@@ -211,11 +214,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>playing easter egg:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing easter egg:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>playing easter egg:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>playing easter egg:</b> ${error.message}`
         );
       }
     }
@@ -231,11 +234,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting boosts:</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting boosts:</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting boosts:</b> ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting boosts:</b> ${error.message}`
         );
       }
     }
@@ -250,13 +253,27 @@ class ApiRequest {
       );
       return response.data;
     } catch (error) {
+      if (
+        error?.response?.data?.message &&
+        error?.response?.data?.message.includes("not available")
+      ) {
+        return "not_available";
+      }
+
+      if (
+        error?.response?.data?.message &&
+        error?.response?.data?.message.includes("exceeded")
+      ) {
+        return "exceeded";
+      }
+
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>upgrading boosts</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>upgrading boosts</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>upgrading boosts</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>upgrading boosts</b>: ${error.message}`
         );
       }
     }
@@ -273,11 +290,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>claiming task</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>claiming task</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>claiming task</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>claiming task</b>: ${error.message}`
         );
       }
     }
@@ -299,11 +316,11 @@ class ApiRequest {
         return "insufficient";
       } else if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>upgrading cards</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>upgrading cards</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>upgrading cards</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>upgrading cards</b>: ${error.message}`
         );
       }
     }
@@ -320,11 +337,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>tapping</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>tapping</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>tapping</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>tapping</b>: ${error.message}`
         );
       }
     }
@@ -356,12 +373,12 @@ class ApiRequest {
         return "claimed";
       } else if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>claiming daily reward</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>claiming daily reward</b> ${error?.response?.data?.message}`
         );
         return "claimed";
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>claiming daily reward</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>claiming daily reward</b>: ${error.message}`
         );
         return null;
       }
@@ -376,11 +393,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>tapping</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>tapping</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>tapping</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>tapping</b>: ${error.message}`
         );
       }
     }
@@ -394,11 +411,11 @@ class ApiRequest {
     } catch (error) {
       if (error?.response?.data?.message) {
         logger.warning(
-          `${this.session_name} | Error while <b>getting mine sync</b> ${error?.response?.data?.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting mine sync</b> ${error?.response?.data?.message}`
         );
       } else {
         logger.error(
-          `${this.session_name} | Error while <b>getting mine sync</b>: ${error.message}`
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting mine sync</b>: ${error.message}`
         );
       }
     }

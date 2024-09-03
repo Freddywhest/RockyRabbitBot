@@ -8,7 +8,8 @@ async function upgradeNoConditionCards(
   cards_wnc,
   api,
   http_client,
-  session_name
+  session_name,
+  bot_name
 ) {
   let profile_data = await api.get_user_data(http_client);
   let mine_sync = await api.mine_sync(http_client);
@@ -38,7 +39,7 @@ async function upgradeNoConditionCards(
     });
     if (upgraded_card?.status?.toLowerCase() === "ok") {
       logger.info(
-        `${session_name} | Card upgraded to level: <bl>${
+        `<ye>[${bot_name}]</ye> | ${session_name} | Card upgraded to level: <bl>${
           upgraded_card?.upgradesTask?.level > 1
             ? upgraded_card?.upgradesTask?.level - 1
             : 1
@@ -48,7 +49,7 @@ async function upgradeNoConditionCards(
       );
     } else {
       logger.warning(
-        `${session_name} | Could not upgrade card | Card: <la>${card?.upgradeId}</la>`
+        `<ye>[${bot_name}]</ye> | ${session_name} | Could not upgrade card | Card: <la>${card?.upgradeId}</la>`
       );
     }
     profile_data = await api.get_user_data(http_client);
