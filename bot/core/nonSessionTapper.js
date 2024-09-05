@@ -170,7 +170,7 @@ class NonSessionTapper {
     while (true) {
       try {
         const currentTime = _.floor(Date.now() / 1000);
-        http_client.defaults.headers["host"] = app.host;
+
         http_client.defaults.headers["sec-ch-ua-platform"] = this.#get_platform(
           this.#get_user_agent()
         );

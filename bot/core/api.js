@@ -11,7 +11,6 @@ class ApiRequest {
 
   async get_user_data(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/account/start`
       );
@@ -46,7 +45,6 @@ class ApiRequest {
     const genders = ["male", "female"];
     const random = _.random(0, 1);
     try {
-      http_client.defaults.headers["host"] = app.host;
       const data = {
         lang: "en",
         sex: genders[random],
@@ -71,7 +69,6 @@ class ApiRequest {
 
   async sponsor(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const sponsors = [
         "binance",
         "okx",
@@ -106,7 +103,6 @@ class ApiRequest {
 
   async config(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(`${app.apiUrl}/api/v1/config`);
       return response.data;
     } catch (error) {
@@ -124,7 +120,6 @@ class ApiRequest {
 
   async get_daily_sync_info(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/mine/sync/daily`
       );
@@ -145,7 +140,6 @@ class ApiRequest {
   // start here tomorrow
   async tasks(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(`${app.apiUrl}/api/v1/task/list`);
       return response.data;
     } catch (error) {
@@ -163,7 +157,6 @@ class ApiRequest {
 
   async play_enigma(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/mine/enigma`,
         JSON.stringify(data)
@@ -184,7 +177,6 @@ class ApiRequest {
 
   async play_combo(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/mine/combo`,
         JSON.stringify(data)
@@ -205,7 +197,6 @@ class ApiRequest {
 
   async play_easter(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/mine/easter-eggs`,
         JSON.stringify(data)
@@ -226,7 +217,6 @@ class ApiRequest {
 
   async get_boosts(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/boosts/list`
       );
@@ -246,7 +236,6 @@ class ApiRequest {
 
   async upgrade_boost(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/boosts`,
         JSON.stringify(data)
@@ -281,7 +270,6 @@ class ApiRequest {
 
   async claim_task(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/task/upgrade`,
         JSON.stringify(data)
@@ -302,7 +290,6 @@ class ApiRequest {
 
   async upgrade_cards(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/mine/upgrade`,
         JSON.stringify(data)
@@ -328,7 +315,6 @@ class ApiRequest {
 
   async taps(http_client, data) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/clicker/tap`,
         JSON.stringify(data)
@@ -349,7 +335,6 @@ class ApiRequest {
 
   async daily_reward(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/task/upgrade`,
         JSON.stringify({
@@ -405,7 +390,6 @@ class ApiRequest {
 
   async mine_sync(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.host;
       const response = await http_client.post(`${app.apiUrl}/api/v1/mine/sync`);
       return response.data;
     } catch (error) {
