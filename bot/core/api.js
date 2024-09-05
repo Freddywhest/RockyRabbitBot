@@ -372,7 +372,6 @@ class ApiRequest {
 
   async get_combo_data(http_client) {
     try {
-      http_client.defaults.headers["host"] = app.comboHost;
       const response = await http_client.get(`${app.comboApi}`);
       return response.data;
     } catch (error) {

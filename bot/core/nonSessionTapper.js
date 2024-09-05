@@ -107,7 +107,6 @@ class NonSessionTapper {
 
   async #check_proxy(http_client, proxy) {
     try {
-      http_client.defaults.headers["host"] = "httpbin.org";
       const response = await http_client.get("https://httpbin.org/ip");
       const ip = response.data.origin;
       logger.info(
