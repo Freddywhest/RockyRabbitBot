@@ -14,6 +14,7 @@ const filterArray = require("../helpers/filterArray");
 const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
 const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
 const path = require("path");
+const _isArray = require("../utils/_isArray");
 
 class NonSessionTapper {
   constructor(query_id, query_name) {
@@ -701,25 +702,30 @@ class NonSessionTapper {
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ❗️Unknown error: ${error}}`
         );
       } finally {
-        if (
-          _.isInteger(settings.SLEEP_BETWEEN_TAP[0]) &&
-          _.isInteger(settings.SLEEP_BETWEEN_TAP[1])
-        ) {
-          const start_sleep = _.random(
-            settings.SLEEP_BETWEEN_TAP[0],
-            settings.SLEEP_BETWEEN_TAP[1]
-          );
-          logger.info(
-            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Sleeping for ${start_sleep} seconds...`
-          );
-          await sleep(start_sleep);
+        let ran_sleep;
+        if (_isArray(settings.SLEEP_BETWEEN_TAP)) {
+          if (
+            _.isInteger(settings.SLEEP_BETWEEN_TAP[0]) &&
+            _.isInteger(settings.SLEEP_BETWEEN_TAP[1])
+          ) {
+            ran_sleep = _.random(
+              settings.SLEEP_BETWEEN_TAP[0],
+              settings.SLEEP_BETWEEN_TAP[1]
+            );
+          } else {
+            ran_sleep = _.random(450, 800);
+          }
+        } else if (_.isInteger(settings.SLEEP_BETWEEN_TAP)) {
+          const ran_add = _.random(20, 50);
+          ran_sleep = settings.SLEEP_BETWEEN_TAP + ran_add;
         } else {
-          const end_sleep = _.random(30, 50);
-          logger.info(
-            `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Sleeping for ${end_sleep} seconds...`
-          );
-          await sleep(end_sleep);
+          ran_sleep = _.random(450, 800);
         }
+
+        logger.info(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Sleeping for ${ran_sleep} seconds...`
+        );
+        await sleep(ran_sleep);
       }
     }
   }
