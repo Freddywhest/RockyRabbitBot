@@ -120,6 +120,7 @@ class Tapper {
 
   async #get_tg_web_data() {
     try {
+      await this.tg_client.connect();
       await this.tg_client.start();
       const platform = this.#get_platform(this.#get_user_agent());
       if (!this.runOnce) {
@@ -194,9 +195,10 @@ class Tapper {
       }
       return null;
     } finally {
-      /* if (this.tg_client.connected) {
+      if (this.tg_client.connected) {
+        await this.tg_client.disconnect();
         await this.tg_client.destroy();
-      } */
+      }
       await sleep(1);
       if (!this.runOnce) {
         logger.info(
@@ -273,11 +275,12 @@ class Tapper {
     while (true) {
       try {
         const currentTime = _.floor(Date.now() / 1000);
-        if (currentTime - access_token_created_time >= 3600) {
+        if (currentTime - access_token_created_time >= 14400) {
           http_client.defaults.headers["sec-ch-ua-platform"] =
             this.#get_platform(this.#get_user_agent());
 
           const tg_web_data = await this.#get_tg_web_data();
+
           if (
             _.isNull(tg_web_data) ||
             _.isUndefined(tg_web_data) ||
