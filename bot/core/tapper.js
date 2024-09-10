@@ -1,8 +1,6 @@
-const { default: axios } = require("axios");
 const logger = require("../utils/logger");
 const headers = require("./header");
 const { Api } = require("telegram");
-const { SocksProxyAgent } = require("socks-proxy-agent");
 const settings = require("../config/config");
 const app = require("../config/app");
 const user_agents = require("../config/userAgents");
@@ -17,7 +15,7 @@ const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
 const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
 const path = require("path");
 const _isArray = require("../utils/_isArray");
-const FetchClient = require("../utils/fetchClient");
+const fdy = require("fdy-scraping");
 
 class Tapper {
   constructor(tg_client) {
@@ -100,25 +98,6 @@ class Tapper {
     return "Unknown";
   }
 
-  #proxy_agent(proxy) {
-    try {
-      if (!proxy) return null;
-      let proxy_url;
-      if (!proxy.password && !proxy.username) {
-        proxy_url = `socks${proxy.socksType}://${proxy.ip}:${proxy.port}`;
-      } else {
-        proxy_url = `socks${proxy.socksType}://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
-      }
-      return new SocksProxyAgent(proxy_url);
-    } catch (e) {
-      logger.error(
-        `<ye>[${this.bot_name}]</ye> | ${this.session_name
-        } | Proxy agent error: ${e}\nProxy: ${JSON.stringify(proxy, null, 2)}`
-      );
-      return null;
-    }
-  }
-
   async #get_tg_web_data() {
     try {
       await this.tg_client.connect();
@@ -130,7 +109,7 @@ class Tapper {
         );
         const botHistory = await this.tg_client.invoke(
           new Api.messages.GetHistory({
-            peer: await this.tg_client.getInputEntity(app.bot),
+            peer: app.bot,
             limit: 10,
           })
         );
@@ -140,16 +119,18 @@ class Tapper {
               message: "/start",
               silent: true,
               noWebpage: true,
-              peer: await this.tg_client.getInputEntity(app.peer),
+              peer: app.bot,
             })
           );
         }
       }
 
+      await sleep(10);
+
       const result = await this.tg_client.invoke(
         new Api.messages.RequestWebView({
-          peer: await this.tg_client.getInputEntity(app.peer),
-          bot: await this.tg_client.getInputEntity(app.bot),
+          peer: app.bot,
+          bot: app.bot,
           platform,
           from_bot_menu: true,
           url: app.webviewUrl,
@@ -163,6 +144,8 @@ class Tapper {
       );
       return parser.toQueryString(data);
     } catch (error) {
+      console.log(error);
+
       if (error.message.includes("AUTH_KEY_DUPLICATED")) {
         logger.error(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | The same authorization key (session file) was used in more than one place simultaneously. You must delete your session file and create a new session`
@@ -183,8 +166,10 @@ class Tapper {
           this.sleep_floodwait = new Date().getTime() / 1000 + 50;
         }
         logger.error(
-          `<ye>[${this.bot_name}]</ye> | ${this.session_name
-          } | Some flood error, waiting ${this.sleep_floodwait - new Date().getTime() / 1000
+          `<ye>[${this.bot_name}]</ye> | ${
+            this.session_name
+          } | Some flood error, waiting ${
+            this.sleep_floodwait - new Date().getTime() / 1000
           } seconds to try again...`
         );
       } else {
@@ -198,7 +183,7 @@ class Tapper {
         await this.tg_client.disconnect();
         await this.tg_client.destroy();
       }
-      await sleep(1);
+      await sleep(3);
       if (!this.runOnce) {
         logger.info(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🚀 Starting session...`
@@ -217,22 +202,15 @@ class Tapper {
         `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Proxy IP: ${ip}`
       );
     } catch (error) {
-      if (
-        error.message.includes("ENOTFOUND") ||
-        error.message.includes("getaddrinfo") ||
-        error.message.includes("ECONNREFUSED")
-      ) {
-        logger.error(
-          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error: Unable to resolve the proxy address. The proxy server at ${proxy.ip}:${proxy.port} could not be found. Please check the proxy address and your network connection.`
-        );
-        logger.error(
-          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | No proxy will be used.`
-        );
-      } else {
-        logger.error(
-          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Proxy: ${proxy.ip}:${proxy.port} | Error: ${error.message}`
-        );
-      }
+      logger.error(
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error: Unable to resolve the proxy address. The proxy server at ${proxy?.ip}:${proxy?.port} could not be found. Please check the proxy address and your network connection.`
+      );
+      logger.error(
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name} | No proxy will be used.`
+      );
+      logger.error(
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error message: ${error?.message}`
+      );
 
       return false;
     }
@@ -253,35 +231,19 @@ class Tapper {
     let sleep_empty_energy = 0;
 
     if (settings.USE_PROXY_FROM_FILE && proxy) {
-      // http_client = axios.create({
-      //   httpsAgent: this.#proxy_agent(proxy),
-      //   headers: this.headers,
-      //   withCredentials: true,
-      // });
-      http_client = new FetchClient({
+      http_client = fdy.create({
         headers: this.headers,
-        withCredentials: true,
-        proxy: proxy,
+        proxy,
       });
       const proxy_result = await this.#check_proxy(http_client, proxy);
       if (!proxy_result) {
-        // http_client = axios.create({
-        //   headers: this.headers,
-        //   withCredentials: true,
-        // });
-        http_client = new FetchClient({
+        http_client = fdy.create({
           headers: this.headers,
-          withCredentials: true,
         });
       }
     } else {
-      // http_client = axios.create({
-      //   headers: this.headers,
-      //   withCredentials: true,
-      // });
-      http_client = new FetchClient({
+      http_client = fdy.create({
         headers: this.headers,
-        withCredentials: true,
       });
     }
 
@@ -289,7 +251,8 @@ class Tapper {
       try {
         const currentTime = _.floor(Date.now() / 1000);
         if (currentTime - access_token_created_time >= 14400) {
-          http_client.defaults.headers["sec-ch-ua-platform"] = this.#get_platform(this.#get_user_agent());
+          http_client.defaults.headers["sec-ch-ua-platform"] =
+            this.#get_platform(this.#get_user_agent());
 
           const tg_web_data = await this.#get_tg_web_data();
 
@@ -305,26 +268,15 @@ class Tapper {
           http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
 
           access_token_created_time = currentTime;
-          await sleep(2);
+          await sleep(5);
         }
         // Get profile data
-        profile_data = await this.api.get_user_data(http_client);
-        // console.log("✅ Step 1/6: Profile data", `${profile_data?.clicker?.balance} | ${profile_data?.clicker?.totalBalance} | ${profile_data?.clicker?.availableTaps}`);
-
+        profile_data = await this.api.get_user_data(http_client, this.headers);
         boosts_list = await this.api.get_boosts(http_client);
-        // console.log("✅ Step 2/6: Boosts list", `${boosts_list?.boostsList.length} | ${boosts_list?.boostsList[0]?.boostId} | ${boosts_list?.boostsList[0]?.level} | ${boosts_list?.boostsList[0]?.price}`);
-
         tasks_list = await this.api.tasks(http_client);
-        // console.log("✅ Step 3/6: Tasks list", `${tasks_list?.tasks.length} | ${tasks_list?.tasks[0]?.id} | ${tasks_list?.tasks[0]?.name} | ${tasks_list?.tasks[0]?.rewardCoins}`);
-
         config = await this.api.config(http_client);
-        // console.log("✅ Step 4/6: Config", `${config?.config?.upgrade.length} | ${config?.config?.upgrade[0]?.id} | ${config?.config?.upgrade[0]?.price} | ${config?.config?.upgrade[0]?.level}`);
-
         mine_sync = await this.api.mine_sync(http_client);
-        // console.log("✅ Step 5/6: Mine sync", `${mine_sync.length} | ${mine_sync[0]?.id} | ${mine_sync[0]?.price} | ${mine_sync[0]?.level}`);
-
         get_daily_sync_info = await this.api.get_daily_sync_info(http_client);
-        // console.log("✅ Step 6/6: Daily sync info", `${get_daily_sync_info?.superSet?.completedAt} | ${get_daily_sync_info?.superSet?.comboId} | ${get_daily_sync_info?.superSet?.comboId}`);
 
         if (
           _.isEmpty(profile_data) ||
@@ -346,7 +298,7 @@ class Tapper {
           continue;
         }
 
-        await sleep(1);
+        await sleep(2);
 
         if (profile_data?.clicker?.lastPassiveEarn > 0) {
           logger.info(
@@ -357,7 +309,7 @@ class Tapper {
         // Daily reward
         if (settings.AUTO_CLAIM_REWARD && sleep_daily_reward <= currentTime) {
           const reward_data = await this.api.daily_reward(http_client);
-          
+
           if (
             typeof reward_data === "string" &&
             reward_data.includes("not_subscribed")
@@ -512,9 +464,12 @@ class Tapper {
                 sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
 
                 logger.info(
-                  `<ye>[${this.bot_name}]</ye> | ${this.session_name
-                  } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${count * profile_data?.clicker?.earnPerTap
-                  }</la> energy to send taps | Available: <bl>${profile_data?.clicker?.availableTaps
+                  `<ye>[${this.bot_name}]</ye> | ${
+                    this.session_name
+                  } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
+                    count * profile_data?.clicker?.earnPerTap
+                  }</la> energy to send taps | Available: <bl>${
+                    profile_data?.clicker?.availableTaps
                   }</bl> | Sleeping ${settings.SLEEP_EMPTY_ENERGY}s`
                 );
                 break;

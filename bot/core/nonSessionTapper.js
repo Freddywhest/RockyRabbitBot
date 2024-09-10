@@ -1,7 +1,5 @@
-const { default: axios } = require("axios");
 const logger = require("../utils/logger");
 const headers = require("./header");
-const { SocksProxyAgent } = require("socks-proxy-agent");
 const settings = require("../config/config");
 const app = require("../config/app");
 const user_agents = require("../config/userAgents");
@@ -15,6 +13,7 @@ const upgradeTabCardsBuying = require("../scripts/upgradeTabCardsBuying");
 const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
 const path = require("path");
 const _isArray = require("../utils/_isArray");
+const fdy = require("fdy-scraping");
 
 class NonSessionTapper {
   constructor(query_id, query_name) {
@@ -86,26 +85,6 @@ class NonSessionTapper {
     return "Unknown";
   }
 
-  #proxy_agent(proxy) {
-    try {
-      if (!proxy) return null;
-      let proxy_url;
-      if (!proxy.password && !proxy.username) {
-        proxy_url = `socks${proxy.socksType}://${proxy.ip}:${proxy.port}`;
-      } else {
-        proxy_url = `socks${proxy.socksType}://${proxy.username}:${proxy.password}@${proxy.ip}:${proxy.port}`;
-      }
-      return new SocksProxyAgent(proxy_url);
-    } catch (e) {
-      logger.error(
-        `<ye>[${this.bot_name}]</ye> | ${
-          this.session_name
-        } | Proxy agent error: ${e}\nProxy: ${JSON.stringify(proxy, null, 2)}`
-      );
-      return null;
-    }
-  }
-
   async #check_proxy(http_client, proxy) {
     try {
       const response = await http_client.get("https://httpbin.org/ip");
@@ -149,22 +128,19 @@ class NonSessionTapper {
     let sleep_empty_energy = 0;
 
     if (settings.USE_PROXY_FROM_FILE && proxy) {
-      http_client = axios.create({
-        httpsAgent: this.#proxy_agent(proxy),
+      http_client = fdy.create({
         headers: this.headers,
-        withCredentials: true,
+        proxy,
       });
       const proxy_result = await this.#check_proxy(http_client, proxy);
       if (!proxy_result) {
-        http_client = axios.create({
+        http_client = fdy.create({
           headers: this.headers,
-          withCredentials: true,
         });
       }
     } else {
-      http_client = axios.create({
+      http_client = fdy.create({
         headers: this.headers,
-        withCredentials: true,
       });
     }
     while (true) {
