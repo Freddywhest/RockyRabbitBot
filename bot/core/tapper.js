@@ -307,24 +307,14 @@ class Tapper {
           access_token_created_time = currentTime;
           await sleep(2);
         }
+        
         // Get profile data
         profile_data = await this.api.get_user_data(http_client);
-        // console.log("✅ Step 1/6: Profile data", `${profile_data?.clicker?.balance} | ${profile_data?.clicker?.totalBalance} | ${profile_data?.clicker?.availableTaps}`);
-
         boosts_list = await this.api.get_boosts(http_client);
-        // console.log("✅ Step 2/6: Boosts list", `${boosts_list?.boostsList.length} | ${boosts_list?.boostsList[0]?.boostId} | ${boosts_list?.boostsList[0]?.level} | ${boosts_list?.boostsList[0]?.price}`);
-
         tasks_list = await this.api.tasks(http_client);
-        // console.log("✅ Step 3/6: Tasks list", `${tasks_list?.tasks.length} | ${tasks_list?.tasks[0]?.id} | ${tasks_list?.tasks[0]?.name} | ${tasks_list?.tasks[0]?.rewardCoins}`);
-
         config = await this.api.config(http_client);
-        // console.log("✅ Step 4/6: Config", `${config?.config?.upgrade.length} | ${config?.config?.upgrade[0]?.id} | ${config?.config?.upgrade[0]?.price} | ${config?.config?.upgrade[0]?.level}`);
-
         mine_sync = await this.api.mine_sync(http_client);
-        // console.log("✅ Step 5/6: Mine sync", `${mine_sync.length} | ${mine_sync[0]?.id} | ${mine_sync[0]?.price} | ${mine_sync[0]?.level}`);
-
         get_daily_sync_info = await this.api.get_daily_sync_info(http_client);
-        // console.log("✅ Step 6/6: Daily sync info", `${get_daily_sync_info?.superSet?.completedAt} | ${get_daily_sync_info?.superSet?.comboId} | ${get_daily_sync_info?.superSet?.comboId}`);
 
         if (
           _.isEmpty(profile_data) ||

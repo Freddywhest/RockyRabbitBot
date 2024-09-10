@@ -10,6 +10,7 @@ class FetchClient {
 
     async request(url, method, body = null, headers = {}) {
         try {
+            // console.log(`Requesting ${url} with method ${method} and body ${JSON.stringify(body)} and headers ${JSON.stringify(this.defaults.headers)}`);
             // Create agent if proxy is provided
             const agent = this.proxy ? new HttpsProxyAgent(this.proxy) : undefined;
 
