@@ -111,8 +111,7 @@ class Tapper {
       return new SocksProxyAgent(proxy_url);
     } catch (e) {
       logger.error(
-        `<ye>[${this.bot_name}]</ye> | ${
-          this.session_name
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name
         } | Proxy agent error: ${e}\nProxy: ${JSON.stringify(proxy, null, 2)}`
       );
       return null;
@@ -183,10 +182,8 @@ class Tapper {
           this.sleep_floodwait = new Date().getTime() / 1000 + 50;
         }
         logger.error(
-          `<ye>[${this.bot_name}]</ye> | ${
-            this.session_name
-          } | Some flood error, waiting ${
-            this.sleep_floodwait - new Date().getTime() / 1000
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name
+          } | Some flood error, waiting ${this.sleep_floodwait - new Date().getTime() / 1000
           } seconds to try again...`
         );
       } else {
@@ -268,17 +265,16 @@ class Tapper {
         });
       }
     } else {
-      http_client = axios.create({
-        headers: this.headers,
-        withCredentials: true,
-      });
+      // http_client = axios.create({
+      //   headers: this.headers,
+      //   withCredentials: true,
+      // });
     }
+
     while (true) {
       try {
         const currentTime = _.floor(Date.now() / 1000);
         if (currentTime - access_token_created_time >= 14400) {
-          http_client.defaults.headers["sec-ch-ua-platform"] =
-            this.#get_platform(this.#get_user_agent());
 
           const tg_web_data = await this.#get_tg_web_data();
 
@@ -291,18 +287,112 @@ class Tapper {
             continue;
           }
 
-          http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
+          class FetchClient {
+            constructor(options = {}) {
+              this.defaultHeaders = options.headers || {};
+              this.withCredentials = options.withCredentials || false;
+            }
+
+            async request(url, method, body = null, headers = {}) {
+              try {
+                const response = await fetch(url, {
+                  method,
+                  headers: { ...this.defaultHeaders, ...headers },
+                  body: body ? body : null,
+                  credentials: this.withCredentials ? 'include' : 'same-origin',
+                });
+
+                // Check if the response is not ok
+                if (!response.ok) {
+                  // Try to parse the response as JSON
+                  const errorText = await response.text();
+                  // Create an error with additional information
+                  const error = new Error(`HTTP error! Status: ${response.status}`);
+                  error.status = response.status;
+                  error.url = url;
+                  error.method = method;
+                  error.responseText = errorText;
+                  error.response = { data: JSON.parse(errorText) };
+                  // Throw the error with additional information
+                  throw error;
+                }
+
+                // Return the parsed JSON response
+                return { data: await response.json(), status: response.status };
+              } catch (error) {
+                // Enhanced error logging with additional details
+                console.error(`Request failed:
+                  URL: ${error.url}
+                  Method: ${error.method}
+                  Status: ${error.status}
+                  Response Text: ${error.responseText}
+                  Error: ${error.message}
+                `);
+                // Rethrow the error for further handling if needed
+                throw error;
+              }
+            }
+
+            get(url, headers = {}) {
+              return this.request(url, 'GET', null, headers);
+            }
+
+            post(url, body = {}, headers = {}) {
+              return this.request(url, 'POST', body, headers);
+            }
+
+            put(url, body = {}, headers = {}) {
+              return this.request(url, 'PUT', body, headers);
+            }
+
+            delete(url, headers = {}) {
+              return this.request(url, 'DELETE', null, headers);
+            }
+          }
+
+          // Create an instance of FetchClient with custom headers and credentials setting
+          http_client = new FetchClient({
+            headers: {
+              "accept": "*/*",
+              "accept-language": "en-US,en;q=0.9",
+              "cache-control": "no-cache",
+              "pragma": "no-cache",
+              "priority": "u=1, i",
+              "rr-version": "1.12.3",
+              "sec-ch-ua": "\"Chromium\";v=\"128\", \"Not;A=Brand\";v=\"24\", \"Google Chrome\";v=\"128\"",
+              "sec-ch-ua-mobile": "?0",
+              "sec-ch-ua-platform": this.#get_platform(this.#get_user_agent()),
+              "sec-fetch-dest": "empty",
+              "sec-fetch-mode": "cors",
+              "sec-fetch-site": "same-site",
+              "Referer": "https://play.rockyrabbit.io/",
+              "Referrer-Policy": "strict-origin-when-cross-origin",
+              "authorization": `tma ${tg_web_data}`,
+            },
+            withCredentials: true,
+          });
 
           access_token_created_time = currentTime;
           await sleep(2);
         }
         // Get profile data
         profile_data = await this.api.get_user_data(http_client);
+        // console.log("✅ Step 1/6: Profile data", `${profile_data?.clicker?.balance} | ${profile_data?.clicker?.totalBalance} | ${profile_data?.clicker?.availableTaps}`);
+
         boosts_list = await this.api.get_boosts(http_client);
+        // console.log("✅ Step 2/6: Boosts list", `${boosts_list?.boostsList.length} | ${boosts_list?.boostsList[0]?.boostId} | ${boosts_list?.boostsList[0]?.level} | ${boosts_list?.boostsList[0]?.price}`);
+
         tasks_list = await this.api.tasks(http_client);
+        // console.log("✅ Step 3/6: Tasks list", `${tasks_list?.tasks.length} | ${tasks_list?.tasks[0]?.id} | ${tasks_list?.tasks[0]?.name} | ${tasks_list?.tasks[0]?.rewardCoins}`);
+
         config = await this.api.config(http_client);
+        // console.log("✅ Step 4/6: Config", `${config?.config?.upgrade.length} | ${config?.config?.upgrade[0]?.id} | ${config?.config?.upgrade[0]?.price} | ${config?.config?.upgrade[0]?.level}`);
+
         mine_sync = await this.api.mine_sync(http_client);
+        // console.log("✅ Step 5/6: Mine sync", `${mine_sync.length} | ${mine_sync[0]?.id} | ${mine_sync[0]?.price} | ${mine_sync[0]?.level}`);
+
         get_daily_sync_info = await this.api.get_daily_sync_info(http_client);
+        // console.log("✅ Step 6/6: Daily sync info", `${get_daily_sync_info?.superSet?.completedAt} | ${get_daily_sync_info?.superSet?.comboId} | ${get_daily_sync_info?.superSet?.comboId}`);
 
         if (
           _.isEmpty(profile_data) ||
@@ -335,7 +425,7 @@ class Tapper {
         // Daily reward
         if (settings.AUTO_CLAIM_REWARD && sleep_daily_reward <= currentTime) {
           const reward_data = await this.api.daily_reward(http_client);
-
+          
           if (
             typeof reward_data === "string" &&
             reward_data.includes("not_subscribed")
@@ -490,12 +580,9 @@ class Tapper {
                 sleep_empty_energy = currentTime + settings.SLEEP_EMPTY_ENERGY;
 
                 logger.info(
-                  `<ye>[${this.bot_name}]</ye> | ${
-                    this.session_name
-                  } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${
-                    count * profile_data?.clicker?.earnPerTap
-                  }</la> energy to send taps | Available: <bl>${
-                    profile_data?.clicker?.availableTaps
+                  `<ye>[${this.bot_name}]</ye> | ${this.session_name
+                  } | Not enough energy to send <ye>${count}</ye> taps. Needed <la>${count * profile_data?.clicker?.earnPerTap
+                  }</la> energy to send taps | Available: <bl>${profile_data?.clicker?.availableTaps
                   }</bl> | Sleeping ${settings.SLEEP_EMPTY_ENERGY}s`
                 );
                 break;
@@ -816,7 +903,7 @@ class Tapper {
           );
         }
       } catch (error) {
-        //traceback(error);
+        // traceback(error);
         logger.error(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ❗️Unknown error: ${error}}`
         );
