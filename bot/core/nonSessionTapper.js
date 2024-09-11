@@ -198,16 +198,8 @@ class NonSessionTapper {
             reward_data.includes("not_subscribed")
           ) {
             logger.info(
-              `<ye>[${this.bot_name}]</ye> | ${this.session_name} |⌛Joining RockyRabit channel before claiming daily reward...`
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} |⌛Join RockyRabit channel before daily reward can be claim. Skipping daily reward claim...`
             );
-            await this.tg_client.invoke(
-              new Api.channels.JoinChannel({
-                channel: await this.tg_client.getInputEntity(
-                  app.rockyRabitChannel
-                ),
-              })
-            );
-            continue;
           } else if (
             typeof reward_data === "string" &&
             reward_data.includes("claimed")

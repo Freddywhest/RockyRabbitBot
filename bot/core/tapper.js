@@ -28,6 +28,7 @@ class Tapper {
     this.api = new ApiRequest(this.session_name, this.bot_name);
     this.sleep_floodwait = 0;
     this.runOnce = false;
+    this.bot = null;
   }
 
   #load_session_data() {
@@ -103,13 +104,18 @@ class Tapper {
       await this.tg_client.connect();
       await this.tg_client.start();
       const platform = this.#get_platform(this.#get_user_agent());
+
+      if (!this.bot) {
+        this.bot = await this.tg_client.getInputEntity(app.bot);
+      }
+
       if (!this.runOnce) {
         logger.info(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 📡 Waiting for authorization...`
         );
         const botHistory = await this.tg_client.invoke(
           new Api.messages.GetHistory({
-            peer: app.bot,
+            peer: this.bot,
             limit: 10,
           })
         );
@@ -119,18 +125,19 @@ class Tapper {
               message: "/start",
               silent: true,
               noWebpage: true,
-              peer: app.bot,
+              peer: this.bot,
             })
           );
         }
       }
+      console.log(JSON.stringify(this.bot));
 
       await sleep(10);
 
       const result = await this.tg_client.invoke(
         new Api.messages.RequestWebView({
-          peer: app.bot,
-          bot: app.bot,
+          peer: this.bot,
+          bot: this.bot,
           platform,
           from_bot_menu: true,
           url: app.webviewUrl,
@@ -144,8 +151,6 @@ class Tapper {
       );
       return parser.toQueryString(data);
     } catch (error) {
-      console.log(error);
-
       if (error.message.includes("AUTH_KEY_DUPLICATED")) {
         logger.error(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | The same authorization key (session file) was used in more than one place simultaneously. You must delete your session file and create a new session`
