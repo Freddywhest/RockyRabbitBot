@@ -130,7 +130,6 @@ class Tapper {
           );
         }
       }
-      console.log(JSON.stringify(this.bot));
 
       await sleep(10);
 
@@ -146,10 +145,8 @@ class Tapper {
 
       const authUrl = result.url;
       const tgWebData = authUrl.split("#", 2)[1];
-      const data = parser.toJson(
-        decodeURIComponent(this.#clean_tg_web_data(tgWebData))
-      );
-      return parser.toQueryString(data);
+
+      return decodeURIComponent(this.#clean_tg_web_data(tgWebData));
     } catch (error) {
       if (error.message.includes("AUTH_KEY_DUPLICATED")) {
         logger.error(
