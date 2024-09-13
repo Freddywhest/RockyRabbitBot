@@ -19,6 +19,7 @@
 | Upgrading energy limit                |    ✅     |
 | Upgrading cards limit                 |    ✅     |
 | Tapping                               |    ✅     |
+| Data caching                          |    ✅     |
 | Multithreading                        |    ✅     |
 | Use sessions/query_ids                |    ✅     |
 | Binding a proxy to a session/query_id |    ✅     |

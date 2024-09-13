@@ -16,6 +16,7 @@ const upgradeNoConditionCards = require("../scripts/upgradeNoConditionCards");
 const path = require("path");
 const _isArray = require("../utils/_isArray");
 const fdy = require("fdy-scraping");
+const FdyTmp = require("fdy-tmp");
 
 class Tapper {
   constructor(tg_client) {
@@ -101,6 +102,35 @@ class Tapper {
 
   async #get_tg_web_data() {
     try {
+      const tmp = new FdyTmp({
+        fileName: `${this.bot_name}.fdy.tmp`,
+        tmpPath: path.join(process.cwd(), "cache/queries"),
+      });
+      if (tmp.hasJsonElement(this.session_name)) {
+        const queryStringFromCache = tmp.getJson(this.session_name);
+        if (!_.isEmpty(queryStringFromCache)) {
+          this.headers["authorization"] = `tma ${queryStringFromCache}`;
+          const va_hc = fdy.create({
+            headers: this.headers,
+          });
+
+          const validate = await this.api.validate_query_id(va_hc);
+
+          if (validate) {
+            logger.info(
+              `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🔄 Getting data from cache...`
+            );
+            if (this.tg_client.connected) {
+              await this.tg_client.disconnect();
+              await this.tg_client.destroy();
+            }
+            await sleep(5);
+            return queryStringFromCache;
+          } else {
+            tmp.deleteJsonElement(this.session_name);
+          }
+        }
+      }
       await this.tg_client.connect();
       await this.tg_client.start();
       const platform = this.#get_platform(this.#get_user_agent());
@@ -131,7 +161,7 @@ class Tapper {
         }
       }
 
-      await sleep(10);
+      await sleep(5);
 
       const result = await this.tg_client.invoke(
         new Api.messages.RequestWebView({
@@ -145,7 +175,18 @@ class Tapper {
 
       const authUrl = result.url;
       const tgWebData = authUrl.split("#", 2)[1];
+      logger.info(
+        `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 💾 Storing data in cache...`
+      );
 
+      await sleep(5);
+
+      tmp
+        .addJson(
+          this.session_name,
+          decodeURIComponent(this.#clean_tg_web_data(tgWebData))
+        )
+        .save();
       return decodeURIComponent(this.#clean_tg_web_data(tgWebData));
     } catch (error) {
       if (error.message.includes("AUTH_KEY_DUPLICATED")) {
@@ -185,14 +226,12 @@ class Tapper {
         await this.tg_client.disconnect();
         await this.tg_client.destroy();
       }
-      await sleep(3);
-      if (!this.runOnce) {
-        logger.info(
-          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🚀 Starting session...`
-        );
-      }
-
       this.runOnce = true;
+      if (this.sleep_floodwait > new Date().getTime() / 1000) {
+        await sleep(this.sleep_floodwait - new Date().getTime() / 1000);
+        return await this.#get_tg_web_data();
+      }
+      await sleep(3);
     }
   }
 

@@ -9,15 +9,13 @@ class ApiRequest {
     this.session_name = session_name;
   }
 
-  async get_user_data(http_client, headers) {
+  async get_user_data(http_client) {
     try {
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/account/start`
       );
       return response.data;
     } catch (error) {
-      console.log(error);
-
       if (error?.response?.data?.message) {
         logger.error(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting User Data:</b> ${error?.response?.data?.message}`
@@ -40,6 +38,29 @@ class ApiRequest {
         );
       }
       await sleep(3); // Sleep for 3 seconds
+    }
+  }
+
+  async validate_query_id(http_client) {
+    try {
+      const response = await http_client.post(
+        `${app.apiUrl}/api/v1/account/start`
+      );
+      if (!_.isEmpty(response?.data)) {
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (
+        error?.response?.data?.message
+          ?.toLowerCase()
+          ?.includes("sign is missing") ||
+        error?.response?.status == 401
+      ) {
+        return false;
+      }
+
+      throw error;
     }
   }
 
