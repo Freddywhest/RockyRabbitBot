@@ -77,20 +77,14 @@ class Register {
     fs.writeFileSync(filePath, JSON.stringify(simulate_device, null, 2));
   }
 
-  #client(simulate_device) {
+  #client() {
     const client_options = {
-      systemLanguage: "en",
-      systemVersion: simulate_device?.os,
-      deviceType: `${
-        simulate_device?.manufacturer == "Apple"
-          ? ""
-          : simulate_device?.manufacturer + " "
-      }${simulate_device?.model}`,
-      appVersion: version || "1.0.0",
-      floodSleepThreshold: 120,
-      systemLangCode: "en",
-      baseLogger: logger2,
       connectionRetries: 5,
+      deviceModel: os.type(),
+      appVersion: "1.0.0",
+      systemVersion: "1.0.0",
+      langCode: "en",
+      baseLogger: logger2,
     };
 
     const client = new TelegramClient(
@@ -219,9 +213,9 @@ class Register {
     const action = parseInt(userInput.trim());
 
     if (action === 1) {
-      await this.#sign_in_with_qr(this.#client(simulate_device));
+      await this.#sign_in_with_qr(this.#client());
     } else if (action === 2) {
-      await this.#sign_in_with_phone(this.#client(simulate_device));
+      await this.#sign_in_with_phone(this.#client());
     }
 
     if (!fs.existsSync(filePath)) {
@@ -238,25 +232,14 @@ class Register {
       `${filePath}/${sessionsName}.session`,
       JSON.stringify(sessionData, null, 2)
     );
-    if (action == 1) {
-      logger.paragraph(
-        `Session saved as <gr>${sessionsName}.session</gr> <br />
-<u>Your session simulation device is: </u><br />
-<b>Manufacturer:</b> <la>${simulate_device?.manufacturer || "N/A"}</la>
-<b>Model:</b> <la>${simulate_device?.model || "N/A"}</la>
-<b>CPU:</b> <la>${simulate_device?.cpu || "N/A"}</la>
-<b>Type:</b> <la>${simulate_device?.type || "N/A"}</la>
-<b>OS:</b> <la>${simulate_device?.os || "N/A"}</la>
-`
-      );
-    } else if (action === 2) {
-      logger.paragraph(
-        `Session saved as <gr>${sessionsName}.session</gr> <br />
+
+    logger.paragraph(
+      `Session saved as <gr>${sessionsName}.session</gr> <br />
 <u>Session device info: </u><br />
 <b>OS:</b> <la>${os.type() || "N/A"}</la>
 `
-      );
-    }
+    );
+
     this.#client().disconnect();
     process.exit(0);
   }

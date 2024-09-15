@@ -114,7 +114,7 @@ class Tapper {
             headers: this.headers,
           });
 
-          const validate = await this.api.validate_query_id(va_hc);
+          const validate = await this.api.validate(va_hc);
 
           if (validate) {
             logger.info(
@@ -429,11 +429,14 @@ class Tapper {
           );
           process.exit(1);
         }
-
+        let taps_sent_count = 0;
         if (sleep_empty_energy <= currentTime) {
           while (
-            profile_data?.clicker?.availableTaps > settings.MIN_AVAILABLE_ENERGY
+            profile_data?.clicker?.availableTaps >
+              settings.MIN_AVAILABLE_ENERGY &&
+            taps_sent_count < 10
           ) {
+            await sleep(_.random(5, 15));
             let taps = _.random(
               settings.RANDOM_TAPS_COUNT[0],
               settings.RANDOM_TAPS_COUNT[1]
@@ -542,6 +545,8 @@ class Tapper {
                 break;
               }
             }
+
+            taps_sent_count++;
           }
         }
 

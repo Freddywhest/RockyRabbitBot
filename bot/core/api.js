@@ -45,7 +45,7 @@ class ApiRequest {
     }
   }
 
-  async validate_query_id(http_client) {
+  async #validate_query_id(http_client) {
     try {
       const response = await http_client.post(
         `${app.apiUrl}/api/v1/account/start`
@@ -55,6 +55,9 @@ class ApiRequest {
       }
       return false;
     } catch (error) {
+      if (error?.response?.status >= 500 && error?.response?.status < 600) {
+        return "server_error";
+      }
       if (
         error?.response?.data?.message
           ?.toLowerCase()
@@ -65,6 +68,27 @@ class ApiRequest {
       }
 
       throw error;
+    }
+  }
+
+  async validate(http_client) {
+    let validated = "server_error";
+    while (typeof validated === "string" && validated === "server_error") {
+      validated = await this.#validate_query_id(http_client);
+
+      if (validated === "server_error") {
+        logger.warning(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Server error. Retrying...`
+        );
+        await sleep(5);
+        continue;
+      }
+
+      if (validated === false) {
+        return false;
+      }
+
+      return true;
     }
   }
 
