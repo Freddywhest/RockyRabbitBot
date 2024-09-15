@@ -16,6 +16,9 @@ class ApiRequest {
       );
       return response.data;
     } catch (error) {
+      if (error?.response?.status >= 500 && error?.response?.status < 600) {
+        return false;
+      }
       if (error?.response?.data?.message) {
         logger.error(
           `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while <b>getting User Data:</b> ${error?.response?.data?.message}`
@@ -38,6 +41,7 @@ class ApiRequest {
         );
       }
       await sleep(3); // Sleep for 3 seconds
+      return null;
     }
   }
 

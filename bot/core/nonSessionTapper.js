@@ -114,6 +114,30 @@ class NonSessionTapper {
     }
   }
 
+  async #get_user_data(http_client) {
+    let profile_data = false;
+    while (typeof profile_data === "boolean" && !profile_data) {
+      profile_data = await this.api.get_user_data(http_client);
+      if (profile_data === false) {
+        logger.warning(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Unable to get user data. Retrying...`
+        );
+        await sleep(5);
+        continue;
+      }
+
+      if (_.isNull(profile_data) || _.isEmpty(profile_data)) {
+        logger.warning(
+          `<ye>[${this.bot_name}]</ye> | ${this.session_name} | Error while getting user data. Aborting...`
+        );
+        break;
+      }
+
+      return profile_data;
+    }
+    return null;
+  }
+
   async run(proxy) {
     let http_client;
 
@@ -156,7 +180,7 @@ class NonSessionTapper {
         http_client.defaults.headers["authorization"] = `tma ${tg_web_data}`;
         await sleep(2);
         // Get profile data
-        profile_data = await this.api.get_user_data(http_client);
+        profile_data = await this.#get_user_data(http_client);
         boosts_list = await this.api.get_boosts(http_client);
         tasks_list = await this.api.tasks(http_client);
         config = await this.api.config(http_client);
@@ -210,7 +234,7 @@ class NonSessionTapper {
               `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🚶 Daily reward already claimed. Skipping...`
             );
           } else if (reward_data?.status?.toLowerCase() === "ok") {
-            profile_data = await this.api.get_user_data(http_client);
+            profile_data = await this.#get_user_data(http_client);
             logger.info(
               `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎉 Claimed daily reward successfully | Reward: <lb>${reward_data?.task?.rewardCoins}</lb> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
             );
@@ -280,13 +304,13 @@ class NonSessionTapper {
             if (taps_result?.status?.toLowerCase() === "ok") {
               const balanceChange =
                 taps_result?.clicker?.balance - profile_data?.clicker?.balance;
-              profile_data = await this.api.get_user_data(http_client);
+              profile_data = await this.#get_user_data(http_client);
               logger.info(
                 `<ye>[${this.bot_name}]</ye> | ${this.session_name} | ✅ Taps sent successfully | Balance: <la>${profile_data?.clicker?.balance}</la> (<gr>+${balanceChange}</gr>) | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
               );
             }
 
-            profile_data = await this.api.get_user_data(http_client);
+            profile_data = await this.#get_user_data(http_client);
             boosts_list = await this.api.get_boosts(http_client);
 
             if (
@@ -329,7 +353,7 @@ class NonSessionTapper {
                 }
 
                 if (full_energy_boost?.status?.toLowerCase() === "ok") {
-                  profile_data = await this.api.get_user_data(http_client);
+                  profile_data = await this.#get_user_data(http_client);
                   logger.info(
                     `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🔋Full energy boost applied successfully`
                   );
@@ -384,7 +408,7 @@ class NonSessionTapper {
               });
 
               if (play_enigma?.status?.toLowerCase() === "ok") {
-                profile_data = await this.api.get_user_data(http_client);
+                profile_data = await this.#get_user_data(http_client);
                 logger.info(
                   `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Enigma claimed successfully | Reward: <la>${play_enigma_data?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
                 );
@@ -408,7 +432,7 @@ class NonSessionTapper {
               });
 
               if (play_combo?.status?.toLowerCase() === "ok") {
-                profile_data = await this.api.get_user_data(http_client);
+                profile_data = await this.#get_user_data(http_client);
                 logger.info(
                   `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Daily combo claimed successfully | Reward: <la>${play_combo?.winner?.rabbitWinner}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb>`
                 );
@@ -433,7 +457,7 @@ class NonSessionTapper {
               });
 
               if (play_easter?.status?.toLowerCase() === "ok") {
-                profile_data = await this.api.get_user_data(http_client);
+                profile_data = await this.#get_user_data(http_client);
                 logger.info(
                   `<ye>[${this.bot_name}]</ye> | ${this.session_name} | 🎊 Easter Egg claimed successfully | Reward: <la>${easter_info?.amount}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb></ye>`
                 );
@@ -461,7 +485,7 @@ class NonSessionTapper {
           });
 
           if (tap_boost?.status?.toLowerCase() === "ok") {
-            profile_data = await this.api.get_user_data(http_client);
+            profile_data = await this.#get_user_data(http_client);
             logger.info(
               `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Tap upgraded successfully | Level: <la>${tap_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
@@ -486,7 +510,7 @@ class NonSessionTapper {
             timezone: app.timezone,
           });
           if (energy_boost?.status?.toLowerCase() === "ok") {
-            profile_data = await this.api.get_user_data(http_client);
+            profile_data = await this.#get_user_data(http_client);
             logger.info(
               `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Energy limit upgraded successfully | Level: <la>${energy_boost_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
@@ -512,7 +536,7 @@ class NonSessionTapper {
             timezone: app.timezone,
           });
           if (hourly_limit?.status?.toLowerCase() === "ok") {
-            profile_data = await this.api.get_user_data(http_client);
+            profile_data = await this.#get_user_data(http_client);
             logger.info(
               `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> Hourly limit upgraded successfully | Level: <la>${hourly_limit_data?.level}</la> | Balance: <la>${profile_data?.clicker?.balance}</la> | Total: <lb>${profile_data?.clicker?.totalBalance}</lb> | Available energy: <ye>${profile_data?.clicker?.availableTaps}</ye>`
             );
@@ -634,7 +658,7 @@ class NonSessionTapper {
                 );
 
                 if (upgrade_league?.status?.toLowerCase() === "ok") {
-                  profile_data = await this.api.get_user_data(http_client);
+                  profile_data = await this.#get_user_data(http_client);
 
                   logger.info(
                     `<ye>[${this.bot_name}]</ye> | ${this.session_name} | <gr>⬆️</gr> League_${level} upgraded successfully | Level: <bl>${leagues[i]?.level}</bl> | Cost: <re>${leagues[i]?.price}</re> | Balance: <la>${profile_data?.clicker?.balance}</la>`
